@@ -277,14 +277,30 @@ CREATE TABLE IF NOT EXISTS public.monthly_reports (
 -- Crear perfil automáticamente al registrarse un usuario en Auth
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
+DECLARE
+    assigned_role user_role := 'admin';
 BEGIN
+    BEGIN
+        IF (new.raw_user_meta_data->>'role') IS NOT NULL THEN
+            assigned_role := (new.raw_user_meta_data->>'role')::user_role;
+        END IF;
+    EXCEPTION WHEN OTHERS THEN
+        assigned_role := 'admin';
+    END;
+
     INSERT INTO public.profiles (id, email, full_name, role)
     VALUES (
         new.id,
         new.email,
         COALESCE(new.raw_user_meta_data->>'full_name', new.email),
-        COALESCE((new.raw_user_meta_data->>'role')::user_role, 'canes')
-    );
+        assigned_role
+    )
+    ON CONFLICT (id) DO UPDATE
+    SET email = EXCLUDED.email,
+        full_name = EXCLUDED.full_name;
+
+    RETURN new;
+EXCEPTION WHEN OTHERS THEN
     RETURN new;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
