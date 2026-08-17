@@ -46,8 +46,17 @@ export default function LoginPage() {
         {/* Logos Header */}
         <div className="flex flex-col items-center text-center mb-6">
           <div className="flex items-center justify-center gap-3 mb-4 max-w-full">
-            <img src="/logos/Logo Control Fauna.jfif" alt="Fauna Control" className="h-14 w-auto max-w-[140px] object-contain rounded-lg shadow-sm" />
-            <img src="/logos/LOGO MINERQUIM.jpg" alt="Grupo Minerquim" className="h-10 w-auto max-w-[140px] object-contain" />
+            <img 
+              src="/logos/Logo Control Fauna.jfif" 
+              alt="Fauna Control" 
+              style={{ maxHeight: '70px', width: 'auto', maxWidth: '140px', objectFit: 'contain' }}
+              className="rounded-lg shadow-sm" 
+            />
+            <img 
+              src="/logos/LOGO MINERQUIM.jpg" 
+              alt="Grupo Minerquim" 
+              style={{ maxHeight: '50px', width: 'auto', maxWidth: '140px', objectFit: 'contain' }}
+            />
           </div>
           <h1 className="text-lg sm:text-xl font-bold text-gray-900 tracking-tight leading-tight">CONTROL DE FAUNA AEROPORTUARIO</h1>
           <p className="text-xs text-gray-500 font-medium mt-1">Plataforma Operacional • Grupo Minerquim</p>

@@ -51,6 +51,12 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Global Image Reset to prevent high-res images from overflowing */
+img, svg, picture, video {
+  max-width: 100%;
+  height: auto;
+}
+
 /* Custom Scrollbars */
 ::-webkit-scrollbar {
   width: 8px;
