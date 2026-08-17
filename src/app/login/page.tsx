@@ -39,17 +39,17 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4 relative overflow-hidden">
       {/* Background Graphic elements */}
-      <div className="absolute -top-40 -right-40 w-96 h-96 bg-orange-600/20 rounded-full blur-3xl"></div>
-      <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-gray-700/30 rounded-full blur-3xl"></div>
+      <div className="absolute -top-40 -right-40 w-96 h-96 bg-orange-600/20 rounded-full blur-3xl pointer-events-none"></div>
+      <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-gray-700/30 rounded-full blur-3xl pointer-events-none"></div>
 
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-8 relative z-10 border border-gray-100">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 sm:p-8 relative z-10 border border-gray-100">
         {/* Logos Header */}
         <div className="flex flex-col items-center text-center mb-6">
-          <div className="flex items-center justify-center gap-4 mb-3">
-            <img src="/logos/Logo Control Fauna.jfif" alt="Fauna Control" className="h-16 w-16 object-contain rounded-xl shadow-sm" />
-            <img src="/logos/LOGO MINERQUIM.jpg" alt="Grupo Minerquim" className="h-10 object-contain" />
+          <div className="flex items-center justify-center gap-3 mb-4 max-w-full">
+            <img src="/logos/Logo Control Fauna.jfif" alt="Fauna Control" className="h-14 w-auto max-w-[140px] object-contain rounded-lg shadow-sm" />
+            <img src="/logos/LOGO MINERQUIM.jpg" alt="Grupo Minerquim" className="h-10 w-auto max-w-[140px] object-contain" />
           </div>
-          <h1 className="text-xl font-bold text-gray-900 tracking-tight">CONTROL DE FAUNA AEROPORTUARIO</h1>
+          <h1 className="text-lg sm:text-xl font-bold text-gray-900 tracking-tight leading-tight">CONTROL DE FAUNA AEROPORTUARIO</h1>
           <p className="text-xs text-gray-500 font-medium mt-1">Plataforma Operacional • Grupo Minerquim</p>
         </div>
 
