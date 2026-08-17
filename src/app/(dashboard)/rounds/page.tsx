@@ -14,7 +14,8 @@ export default function RoundsPage() {
   const supabase = createClient()
 
   // Form State
-  const [zone, setZone] = useState('Zona Umbral Pista 35L')
+  const [zones, setZones] = useState<any[]>([])
+  const [zone, setZone] = useState('')
   const [observations, setObservations] = useState('')
   const [hasFenceIncident, setHasFenceIncident] = useState(false)
   const [damageDescription, setDamageDescription] = useState('')
@@ -30,6 +31,16 @@ export default function RoundsPage() {
 
   async function fetchRounds() {
     setLoading(true)
+    
+    // Fetch zones dynamically
+    const { data: zoneData } = await supabase.from('airport_zones').select('*').order('name')
+    if (zoneData) {
+      setZones(zoneData)
+      if (zoneData.length > 0) {
+        setZone(zoneData[0].name)
+      }
+    }
+
     const { data, error } = await supabase
       .from('rounds')
       .select('*, operator:profiles(*)')
@@ -197,11 +208,12 @@ export default function RoundsPage() {
                   onChange={(e) => setZone(e.target.value)}
                   className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-xs"
                 >
-                  <option value="Zona Umbral Pista 35L">Zona Umbral Pista 35L</option>
-                  <option value="Zona Umbral Pista 17R">Zona Umbral Pista 17R</option>
-                  <option value="Perímetro Norte Carga">Perímetro Norte Carga</option>
-                  <option value="Perímetro Sur Terminal">Perímetro Sur Terminal</option>
-                  <option value="Calle de Rodaje Alpha">Calle de Rodaje Alpha</option>
+                  {zones.map((z) => (
+                    <option key={z.id} value={z.name}>{z.name}</option>
+                  ))}
+                  {zones.length === 0 && (
+                    <option value="">Cargando zonas...</option>
+                  )}
                 </select>
               </div>
 

@@ -18,7 +18,8 @@ export default function EventsPage() {
   // Activation Form
   const [clientId, setClientId] = useState('')
   const [specificLocation, setSpecificLocation] = useState('Umbral Pista 35L')
-  const [airportZone, setAirportZone] = useState('Área Operacional')
+  const [zones, setZones] = useState<any[]>([])
+  const [airportZone, setAirportZone] = useState('')
   const [situationDescription, setSituationDescription] = useState('')
   const [generalResult, setGeneralResult] = useState<'Captura total' | 'Captura parcial' | 'Animales escaparon' | 'Sin hallazgo'>('Captura total')
   const [saving, setSaving] = useState(false)
@@ -37,6 +38,12 @@ export default function EventsPage() {
 
   async function fetchInitialData() {
     setLoading(true)
+    const { data: zoneData } = await supabase.from('airport_zones').select('*').order('name')
+    if (zoneData) {
+      setZones(zoneData)
+      if (zoneData.length > 0) setAirportZone(zoneData[0].name)
+    }
+
     const { data: clientsData } = await supabase.from('clients').select('*').eq('active', true)
     if (clientsData) {
       setClients(clientsData as Client[])
@@ -200,6 +207,22 @@ export default function EventsPage() {
                   {clients.map((c) => (
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Zona del Aeródromo</label>
+                <select
+                  value={airportZone}
+                  onChange={(e) => setAirportZone(e.target.value)}
+                  className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs"
+                >
+                  {zones.map((z) => (
+                    <option key={z.id} value={z.name}>{z.name}</option>
+                  ))}
+                  {zones.length === 0 && (
+                    <option value="">Cargando zonas...</option>
+                  )}
                 </select>
               </div>
 
