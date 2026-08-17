@@ -1,0 +1,52 @@
+'use client'
+
+import React from 'react'
+import { AuthProvider, useAuth } from '@/lib/auth/AuthProvider'
+import { Sidebar } from '@/components/layout/Sidebar'
+import { Navbar } from '@/components/layout/Navbar'
+import { BottomNav } from '@/components/layout/BottomNav'
+import { useRouter } from 'next/navigation'
+import { useEffect } from 'react'
+
+function DashboardContent({ children }: { children: React.ReactNode }) {
+  const { profile, loading } = useAuth()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (!loading && !profile) {
+      router.push('/login')
+    }
+  }, [profile, loading, router])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center text-white p-4">
+        <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p className="text-sm font-medium text-gray-300">Cargando Plataforma Control de Fauna...</p>
+      </div>
+    )
+  }
+
+  if (!profile) return null
+
+  return (
+    <div className="flex h-screen bg-gray-50 overflow-hidden">
+      <Sidebar />
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <Navbar />
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-20 md:pb-6">
+          {children}
+        </main>
+        <BottomNav />
+      </div>
+    </div>
+  )
+}
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <AuthProvider>
+      <DashboardContent>{children}</DashboardContent>
+    </AuthProvider>
+  )
+}

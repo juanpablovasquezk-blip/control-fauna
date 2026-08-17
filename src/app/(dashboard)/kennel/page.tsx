@@ -1,0 +1,228 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/lib/auth/AuthProvider'
+import { KennelRecord, KennelCleaning } from '@/types'
+import { Dog, Sparkles, AlertTriangle, Plus, Clock, CheckCircle2 } from 'lucide-react'
+
+export default function KennelPage() {
+  const [activeKennels, setActiveKennels] = useState<KennelRecord[]>([])
+  const [cleanings, setCleanings] = useState<KennelCleaning[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showCleaningModal, setShowCleaningModal] = useState(false)
+  const { profile } = useAuth()
+  const supabase = createClient()
+
+  // Cleaning Form
+  const [cleaningType, setCleaningType] = useState('Limpieza general y desinfección')
+  const [observations, setObservations] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    fetchKennelData()
+  }, [])
+
+  async function fetchKennelData() {
+    setLoading(true)
+    // 1. Active Animals in Kennel
+    const { data: kennelData } = await supabase
+      .from('kennel_records')
+      .select('*, animal:animal_records(*)')
+      .eq('status', 'En canil')
+
+    if (kennelData) setActiveKennels(kennelData as KennelRecord[])
+
+    // 2. Cleaning Logs
+    const { data: cleaningData } = await supabase
+      .from('kennel_cleanings')
+      .select('*, operator:profiles(*)')
+      .order('cleaning_datetime', { ascending: false })
+
+    if (cleaningData) setCleanings(cleaningData as KennelCleaning[])
+    setLoading(false)
+  }
+
+  const handleRegisterCleaning = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!profile) return
+    setSaving(true)
+
+    try {
+      // 1. Insert cleaning
+      const { data: cleanRes, error: cleanErr } = await supabase
+        .from('kennel_cleanings')
+        .insert({
+          operator_id: profile.id,
+          cleaning_type: cleaningType,
+          observations,
+        })
+        .select()
+        .single()
+
+      if (cleanErr) throw cleanErr
+
+      // 2. Link with all active animals in kennel
+      if (cleanRes && activeKennels.length > 0) {
+        const cleaningAnimalLinks = activeKennels.map(k => ({
+          cleaning_id: cleanRes.id,
+          animal_id: k.animal_id,
+        }))
+        await supabase.from('cleaning_animals').insert(cleaningAnimalLinks)
+      }
+
+      setShowCleaningModal(false)
+      setObservations('')
+      fetchKennelData()
+      alert('Aseo de canil registrado correctamente y vinculado a los animales presentes.')
+    } catch (err: any) {
+      alert('Error registrando aseo: ' + err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
+        <div>
+          <div className="flex items-center gap-2">
+            <Dog className="w-6 h-6 text-amber-600" />
+            <h1 className="text-xl font-bold text-gray-900">Control de Canil & Registro de Aseo</h1>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">
+            Custodia temporal de perros y gatos, con trazabilidad obligatoria de desinfección y alimentación.
+          </p>
+        </div>
+        <button
+          onClick={() => setShowCleaningModal(true)}
+          disabled={activeKennels.length === 0}
+          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-semibold text-xs rounded-xl shadow transition"
+        >
+          <Sparkles className="w-4 h-4" />
+          <span>Registrar Aseo de Canil</span>
+        </button>
+      </div>
+
+      {/* Active Animals in Kennel Cards */}
+      <div className="space-y-3">
+        <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wider">Animales Bajo Custodia Actual ({activeKennels.length})</h3>
+
+        {activeKennels.length === 0 ? (
+          <div className="p-6 bg-white rounded-2xl border border-gray-200 text-center text-xs text-gray-400">
+            No hay animales actualmente en el canil.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {activeKennels.map((k) => (
+              <div key={k.id} className="bg-white p-4 rounded-2xl border border-amber-200 shadow-sm space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="px-2 py-0.5 bg-amber-100 text-amber-800 text-[10px] font-bold rounded-full uppercase">
+                    {k.species}
+                  </span>
+                  <span className="text-[10px] text-gray-400 flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    {new Date(k.entry_datetime).toLocaleDateString()}
+                  </span>
+                </div>
+                <div className="text-xs space-y-1">
+                  <p className="font-semibold text-gray-800">Sexo: {k.animal?.sex || 'Indeterminado'}</p>
+                  <p className="text-gray-600">Color: {k.animal?.color_features || 'No especificado'}</p>
+                  <p className="text-gray-500">Edad aparente: {k.animal?.apparent_age || 'Indeterminada'}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Cleaning History List */}
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+          <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wider">Historial de Aseos y Alimentación</h3>
+          <span className="text-xs text-gray-500">{cleanings.length} registros</span>
+        </div>
+
+        {cleanings.length === 0 ? (
+          <div className="p-6 text-center text-xs text-gray-400">No hay registros de aseo cargados.</div>
+        ) : (
+          <div className="divide-y divide-gray-100">
+            {cleanings.map((c) => (
+              <div key={c.id} className="p-4 hover:bg-gray-50 transition flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span className="text-xs font-bold text-gray-900">{c.cleaning_type}</span>
+                  </div>
+                  <p className="text-xs text-gray-600 mt-0.5">{c.observations || 'Sin observaciones'}</p>
+                  <p className="text-[10px] text-gray-400">Realizado por: {c.operator?.full_name}</p>
+                </div>
+                <span className="text-[11px] text-gray-500">
+                  {new Date(c.cleaning_datetime).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Modal Registrar Aseo */}
+      {showCleaningModal && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-2xl p-6 space-y-4">
+            <h3 className="text-lg font-bold text-gray-900">Registrar Aseo / Limpieza de Canil</h3>
+
+            <form onSubmit={handleRegisterCleaning} className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Tipo de Aseo / Mantención</label>
+                <select
+                  value={cleaningType}
+                  onChange={(e) => setCleaningType(e.target.value)}
+                  className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-xs"
+                >
+                  <option value="Limpieza general y desinfección">Limpieza general y desinfección</option>
+                  <option value="Alimentación y agua fresca">Alimentación y agua fresca</option>
+                  <option value="Aseo completo + alimentación">Aseo completo + alimentación</option>
+                  <option value="Inspección de salud y descanso">Inspección de salud y descanso</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Observaciones</label>
+                <textarea
+                  rows={3}
+                  value={observations}
+                  onChange={(e) => setObservations(e.target.value)}
+                  placeholder="Detalles sobre el estado del canil y los animales..."
+                  className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-xs"
+                />
+              </div>
+
+              <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 text-[11px] text-amber-800">
+                Este registro de aseo quedará automáticamente vinculado a los <strong>{activeKennels.length}</strong> animales presentes en el canil en este momento.
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCleaningModal(false)}
+                  className="px-4 py-2 bg-gray-100 text-xs font-semibold rounded"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="px-4 py-2 bg-amber-600 text-white text-xs font-semibold rounded hover:bg-amber-700"
+                >
+                  Guardar Aseo
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
