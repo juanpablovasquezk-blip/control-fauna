@@ -61,8 +61,8 @@ export default function SettingsPage() {
   // Zone form state
   const [zoneName, setZoneName] = useState('')
 
-  // Prices state (for specific client rates editing)
   const [pricesState, setPricesState] = useState<{ [serviceId: string]: number }>({})
+  const [unitsState, setUnitsState] = useState<{ [serviceId: string]: string }>({})
 
   const supabase = createClient()
 
@@ -247,11 +247,14 @@ export default function SettingsPage() {
     
     // Pre-populate rates state
     const initialPrices: { [serviceId: string]: number } = {}
+    const initialUnits: { [serviceId: string]: string } = {}
     services.forEach(s => {
       const match = clientServices.find(cs => cs.client_id === client.id && cs.service_id === s.id)
       initialPrices[s.id] = match ? parseFloat(match.price_per_animal) : 0
+      initialUnits[s.id] = match && match.price_unit ? match.price_unit : 'CLP'
     })
     setPricesState(initialPrices)
+    setUnitsState(initialUnits)
   }
 
   const handleSaveRates = async (e: React.FormEvent) => {
@@ -262,7 +265,8 @@ export default function SettingsPage() {
     try {
       for (const serviceId of Object.keys(pricesState)) {
         const price = pricesState[serviceId]
-        const res = await updateClientServicePriceAction(showRatesModal.id, serviceId, price)
+        const unit = unitsState[serviceId] || 'CLP'
+        const res = await updateClientServicePriceAction(showRatesModal.id, serviceId, price, unit)
         if (!res.success) throw new Error(res.error)
       }
       setShowRatesModal(null)
@@ -900,10 +904,18 @@ export default function SettingsPage() {
                       <p className="text-[10px] text-gray-500">{s.line}</p>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-xs text-gray-600 font-bold">$</span>
+                      <select
+                        value={unitsState[s.id] || 'CLP'}
+                        onChange={(e) => setUnitsState({ ...unitsState, [s.id]: e.target.value })}
+                        className="p-1.5 bg-white border border-gray-300 rounded text-xs font-bold text-gray-700"
+                      >
+                        <option value="CLP">$ (Pesos)</option>
+                        <option value="UF">UF</option>
+                      </select>
                       <input
                         type="number"
                         min="0"
+                        step="any"
                         required
                         value={pricesState[s.id] || 0}
                         onChange={(e) => setPricesState({ ...pricesState, [s.id]: parseFloat(e.target.value) || 0 })}

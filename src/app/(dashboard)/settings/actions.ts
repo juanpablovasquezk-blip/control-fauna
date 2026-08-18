@@ -138,13 +138,14 @@ export async function deleteClientAction(id: string) {
   return { success: true }
 }
 
-export async function updateClientServicePriceAction(clientId: string, serviceId: string, price: number) {
+export async function updateClientServicePriceAction(clientId: string, serviceId: string, price: number, unit: string = 'CLP') {
   const { error } = await supabaseAdmin
     .from('client_services')
     .upsert({
       client_id: clientId,
       service_id: serviceId,
       price_per_animal: price,
+      price_unit: unit,
       enabled: true
     }, {
       onConflict: 'client_id,service_id'
@@ -194,4 +195,20 @@ export async function deleteAirportZoneAction(id: string) {
   }
 
   return { success: true }
+}
+
+export async function getUFValueAction(dateStr: string) {
+  try {
+    const [year, month, day] = dateStr.split('-')
+    const mindicadorDate = `${day}-${month}-${year}`
+    const res = await fetch(`https://mindicador.cl/api/uf/${mindicadorDate}`)
+    if (!res.ok) throw new Error('Mindicador API response not ok')
+    const data = await res.json()
+    if (data.serie && data.serie.length > 0) {
+      return { success: true, uf: data.serie[0].valor }
+    }
+    throw new Error('No series data found')
+  } catch (err: any) {
+    return { success: false, error: err.message, fallbackUf: 37700 } // average fallback value
+  }
 }
