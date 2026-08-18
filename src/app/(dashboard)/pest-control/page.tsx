@@ -60,6 +60,12 @@ export default function PestControlPage() {
   const [noHuntingReason, setNoHuntingReason] = useState('')
   const [customReason, setCustomReason] = useState('')
   const [observations, setObservations] = useState('')
+  const [recordDate, setRecordDate] = useState(() => {
+    const localObj = new Date()
+    const offset = localObj.getTimezoneOffset()
+    const localDate = new Date(localObj.getTime() - (offset * 60 * 1000))
+    return localDate.toISOString().split('T')[0]
+  })
   const [saving, setSaving] = useState(false)
 
   const { profile } = useAuth()
@@ -135,6 +141,10 @@ export default function PestControlPage() {
     setObservations('')
     setSector('Sector Pista Principal')
     setMethod('Método Caza Autorizada SAG')
+    const localObj = new Date()
+    const offset = localObj.getTimezoneOffset()
+    const localDate = new Date(localObj.getTime() - (offset * 60 * 1000))
+    setRecordDate(localDate.toISOString().split('T')[0])
     if (profile) setResponsibleId(profile.id)
     setShowModal(true)
   }
@@ -175,7 +185,8 @@ export default function PestControlPage() {
         pigeons: Number(pigeons),
         method,
         observations: finalObservations,
-        responsible_id: selectedOperatorId
+        responsible_id: selectedOperatorId,
+        record_date: isAdminOrSuper ? recordDate : new Date().toISOString().split('T')[0]
       })
 
       if (!res.success) throw new Error(res.error)
@@ -457,6 +468,20 @@ export default function PestControlPage() {
                   <span>{clientNameDisplay}</span>
                 </div>
               </div>
+
+              {/* Fecha de la Jornada (Only for Admin / Supervisor) */}
+              {isAdminOrSuper && (
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Fecha de la Jornada</label>
+                  <input
+                    type="date"
+                    required
+                    value={recordDate}
+                    onChange={(e) => setRecordDate(e.target.value)}
+                    className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs font-medium text-gray-700"
+                  />
+                </div>
+              )}
 
               {/* Selector de Operador (Only for Admin / Supervisor) */}
               {isAdminOrSuper ? (
