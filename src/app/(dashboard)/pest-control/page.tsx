@@ -20,21 +20,19 @@ const PRESET_REASONS = [
 ]
 
 const MONTHS_CONFIG = [
-  { value: '01', name: 'Enero' },
-  { value: '02', name: 'Febrero' },
-  { value: '03', name: 'Marzo' },
-  { value: '04', name: 'Abril' },
-  { value: '05', name: 'Mayo' },
-  { value: '06', name: 'Junio' },
-  { value: '07', name: 'Julio' },
-  { value: '08', name: 'Agosto' },
-  { value: '09', name: 'Septiembre' },
-  { value: '10', name: 'Octubre' },
+  { value: '12', name: 'Diciembre' },
   { value: '11', name: 'Noviembre' },
-  { value: '12', name: 'Diciembre' }
+  { value: '10', name: 'Octubre' },
+  { value: '09', name: 'Septiembre' },
+  { value: '08', name: 'Agosto' },
+  { value: '07', name: 'Julio' },
+  { value: '06', name: 'Junio' },
+  { value: '05', name: 'Mayo' },
+  { value: '04', name: 'Abril' },
+  { value: '03', name: 'Marzo' },
+  { value: '02', name: 'Febrero' },
+  { value: '01', name: 'Enero' }
 ]
-
-const YEARS_LIST = [2026, 2027, 2028, 2029, 2030]
 
 export default function PestControlPage() {
   const [records, setRecords] = useState<any[]>([])
@@ -105,6 +103,13 @@ export default function PestControlPage() {
       setClients(res.clients)
       setOperators(res.operators)
       setRecords(res.records)
+
+      // Automatically find latest year with data
+      const years = Array.from(new Set(res.records.map((r: any) => Number(r.record_date.substring(0, 4))))) as number[]
+      if (years.length > 0) {
+        years.sort((a, b) => b - a)
+        setSelectedYear(years[0])
+      }
 
       // Automatically find DGAC client
       const dgac = res.clients.find((c: any) => c.is_contract_client || c.name.toUpperCase().includes('DGAC')) || res.clients[0]
@@ -243,6 +248,15 @@ export default function PestControlPage() {
     }))
   }
 
+  // Get unique years with data dynamically from records
+  const dynamicYearsList = Array.from(
+    new Set(records.map(r => Number(r.record_date.substring(0, 4))))
+  ).sort((a, b) => b - a)
+
+  if (dynamicYearsList.length === 0) {
+    dynamicYearsList.push(2026) // fallback default
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -272,7 +286,7 @@ export default function PestControlPage() {
           <span>Seleccionar Año de Operación:</span>
         </div>
         <div className="flex gap-1.5 overflow-x-auto pb-1 sm:pb-0">
-          {YEARS_LIST.map((yr) => (
+          {dynamicYearsList.map((yr) => (
             <button
               key={yr}
               onClick={() => setSelectedYear(yr)}
@@ -312,7 +326,21 @@ export default function PestControlPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 text-xs">
-              {monthlySummaries.map((m) => {
+              {/* Total Row */}
+              {yearRecords.length > 0 && (
+                <tr className="bg-gray-100 font-bold border-b-2 border-gray-300">
+                  <td className="p-3 pl-4 text-gray-900 text-xs font-black">TOTAL ANUAL</td>
+                  <td className="p-3 text-right">{annualMale}</td>
+                  <td className="p-3 text-right">{annualFemale}</td>
+                  <td className="p-3 text-right text-emerald-800 font-black">{annualRabbits}</td>
+                  <td className="p-3 text-right">{annualPigeons}</td>
+                  <td className="p-3 text-center">{annualJornadas}</td>
+                  <td className="p-3 text-center text-emerald-700">{annualWithCaza}</td>
+                  <td className="p-3 text-center text-amber-700">{annualWithoutCaza}</td>
+                  <td className="p-3 pr-4"></td>
+                </tr>
+              )}
+              {monthlySummaries.filter(m => m.jornadasCount > 0).map((m) => {
                 const isCollapsed = collapsedMonths[m.monthKey] !== false; // collapsed by default unless explicitly false
                 const hasData = m.jornadasCount > 0;
 
@@ -396,20 +424,7 @@ export default function PestControlPage() {
                   </Fragment>
                 )
               })}
-              {/* Total Row */}
-              {yearRecords.length > 0 && (
-                <tr className="bg-gray-100 font-bold border-t-2 border-gray-300">
-                  <td className="p-3 pl-4 text-gray-900 text-xs font-black">TOTAL ANUAL</td>
-                  <td className="p-3 text-right">{annualMale}</td>
-                  <td className="p-3 text-right">{annualFemale}</td>
-                  <td className="p-3 text-right text-emerald-800 font-black">{annualRabbits}</td>
-                  <td className="p-3 text-right">{annualPigeons}</td>
-                  <td className="p-3 text-center">{annualJornadas}</td>
-                  <td className="p-3 text-center text-emerald-700">{annualWithCaza}</td>
-                  <td className="p-3 text-center text-amber-700">{annualWithoutCaza}</td>
-                  <td className="p-3 pr-4"></td>
-                </tr>
-              )}
+
             </tbody>
           </table>
         </div>
