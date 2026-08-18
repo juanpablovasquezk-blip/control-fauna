@@ -841,6 +841,21 @@ export default function SettingsPage() {
                 </div>
               </div>
 
+              {!clientIsContract && editingClient && (
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowClientModal(false)
+                      handleOpenRates(editingClient)
+                    }}
+                    className="w-full py-2.5 bg-orange-50 hover:bg-orange-100 border border-orange-200 text-orange-700 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5"
+                  >
+                    <span>Configurar Tarifas ($) de este Cliente</span>
+                  </button>
+                </div>
+              )}
+
               <div className="flex justify-end gap-2 pt-3 border-t">
                 <button
                   type="button"
