@@ -40,6 +40,7 @@ export default function PestControlPage() {
   const [operators, setOperators] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
+  const [existingSectors, setExistingSectors] = useState<string[]>([])
 
   // Year Selection
   const [selectedYear, setSelectedYear] = useState(2026)
@@ -103,6 +104,10 @@ export default function PestControlPage() {
       setClients(res.clients)
       setOperators(res.operators)
       setRecords(res.records)
+
+      // Extract unique sectors
+      const sectors = Array.from(new Set(res.records.map((r: any) => r.sector))).filter(Boolean) as string[]
+      setExistingSectors(sectors)
 
       // Automatically find latest year with data
       const years = Array.from(new Set(res.records.map((r: any) => Number(r.record_date.substring(0, 4))))) as number[]
@@ -486,8 +491,14 @@ export default function PestControlPage() {
                   required
                   value={sector}
                   onChange={(e) => setSector(e.target.value)}
-                  className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs"
+                  list="sectors-list"
+                  className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs font-medium"
                 />
+                <datalist id="sectors-list">
+                  {existingSectors.map((sec) => (
+                    <option key={sec} value={sec} />
+                  ))}
+                </datalist>
               </div>
 
               {/* Animal Counts */}
