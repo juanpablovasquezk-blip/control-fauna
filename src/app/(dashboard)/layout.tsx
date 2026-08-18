@@ -1,12 +1,11 @@
 'use client'
 
-import React from 'react'
+import React, { useEffect } from 'react'
 import { AuthProvider, useAuth } from '@/lib/auth/AuthProvider'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { Navbar } from '@/components/layout/Navbar'
 import { BottomNav } from '@/components/layout/BottomNav'
 import { useRouter } from 'next/navigation'
-import { useEffect } from 'react'
 
 function DashboardContent({ children }: { children: React.ReactNode }) {
   const { profile, loading } = useAuth()
@@ -17,6 +16,14 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
       router.push('/login')
     }
   }, [profile, loading, router])
+
+  useEffect(() => {
+    if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
+      navigator.serviceWorker.register('/sw.js').catch((err) => {
+        console.error('Service worker registration failed:', err)
+      })
+    }
+  }, [])
 
   if (loading) {
     return (
