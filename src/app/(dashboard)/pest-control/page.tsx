@@ -19,6 +19,12 @@ const PRESET_REASONS = [
   'Otro (especificar)'
 ]
 
+function capitalizeSentence(text: string) {
+  if (!text) return ''
+  const trimmed = text.trim()
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1)
+}
+
 const MONTHS_CONFIG = [
   { value: '12', name: 'Diciembre' },
   { value: '11', name: 'Noviembre' },
@@ -111,9 +117,11 @@ export default function PestControlPage() {
       setOperators(res.operators)
       setRecords(res.records)
 
-      // Extract unique sectors
-      const sectors = Array.from(new Set(res.records.map((r: any) => r.sector))).filter(Boolean) as string[]
-      setExistingSectors(sectors)
+      // Extract unique sectors from records AND official airport zones
+      const recordSectors = res.records.map((r: any) => r.sector)
+      const officialZones = res.zones ? res.zones.map((z: any) => z.name) : []
+      const combinedSectors = Array.from(new Set([...recordSectors, ...officialZones])).filter(Boolean) as string[]
+      setExistingSectors(combinedSectors)
 
       // Automatically find latest year with data
       const years = Array.from(new Set(res.records.map((r: any) => Number(r.record_date.substring(0, 4))))) as number[]
@@ -155,6 +163,7 @@ export default function PestControlPage() {
 
     const totalAnimals = Number(rabbitsMale) + Number(rabbitsFemale) + Number(pigeons)
 
+    const formattedSector = capitalizeSentence(sector)
     let finalObservations = observations.trim()
     if (totalAnimals === 0) {
       if (!noHuntingReason) {
@@ -166,10 +175,12 @@ export default function PestControlPage() {
           alert('Por favor especifique el motivo de no-caza.')
           return
         }
-        finalObservations = customReason.trim() + (observations ? ' | ' + observations : '')
+        finalObservations = capitalizeSentence(customReason) + (observations ? ' | ' + capitalizeSentence(observations) : '')
       } else {
-        finalObservations = noHuntingReason + (observations ? ' | ' + observations : '')
+        finalObservations = noHuntingReason + (observations ? ' | ' + capitalizeSentence(observations) : '')
       }
+    } else {
+      finalObservations = capitalizeSentence(finalObservations)
     }
 
     setSaving(true)
@@ -179,7 +190,7 @@ export default function PestControlPage() {
 
       const res = await createPestRecordAction({
         client_id: clientId,
-        sector,
+        sector: formattedSector,
         rabbits_male: Number(rabbitsMale),
         rabbits_female: Number(rabbitsFemale),
         pigeons: Number(pigeons),

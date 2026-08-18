@@ -30,14 +30,23 @@ export async function getPestControlDataAction() {
 
     if (recErr) throw recErr
 
+    // 4. Fetch airport zones
+    const { data: zones, error: zoneErr } = await supabaseAdmin
+      .from('airport_zones')
+      .select('name')
+      .order('name', { ascending: true })
+
+    if (zoneErr) throw zoneErr
+
     return {
       success: true,
       clients: clients || [],
       operators: operators || [],
-      records: records || []
+      records: records || [],
+      zones: zones || []
     }
   } catch (err: any) {
-    return { success: false, error: err.message, clients: [], operators: [], records: [] }
+    return { success: false, error: err.message, clients: [], operators: [], records: [], zones: [] }
   }
 }
 
