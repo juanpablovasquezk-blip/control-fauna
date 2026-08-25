@@ -103,12 +103,24 @@ export default function EventsPage() {
       if (clientsData.length > 0) setClientId(clientsData[0].id)
     }
 
-    const { data: eventsData } = await supabase
+    // Explicitly specify operator_id foreign key relation to avoid PostgREST ambiguity with closed_by
+    const { data: eventsData, error: eventsError } = await supabase
       .from('events')
-      .select('*, client:clients(*), operator:profiles(*), animal_records(*)')
+      .select('*, client:clients(*), operator:profiles!operator_id(*), animal_records(*)')
       .order('created_at', { ascending: false })
 
-    if (eventsData) setActivations(eventsData as EventActivation[])
+    if (eventsError) {
+      console.warn('Error fetching events with operator profile, executing fallback query:', eventsError.message)
+      const { data: fallbackEvents } = await supabase
+        .from('events')
+        .select('*, client:clients(*), animal_records(*)')
+        .order('created_at', { ascending: false })
+
+      if (fallbackEvents) setActivations(fallbackEvents as EventActivation[])
+    } else if (eventsData) {
+      setActivations(eventsData as EventActivation[])
+    }
+
     setLoading(false)
   }
 
