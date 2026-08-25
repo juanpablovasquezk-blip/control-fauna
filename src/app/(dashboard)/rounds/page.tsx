@@ -16,6 +16,7 @@ export default function RoundsPage() {
   // Form State
   const [zones, setZones] = useState<any[]>([])
   const [zone, setZone] = useState('')
+  const [specificLocation, setSpecificLocation] = useState('')
   const [observations, setObservations] = useState('')
   const [hasFenceIncident, setHasFenceIncident] = useState(false)
   const [damageDescription, setDamageDescription] = useState('')
@@ -56,14 +57,13 @@ export default function RoundsPage() {
     const files = e.target.files
     if (!files) return
 
-    const newUrls: string[] = []
     Array.from(files).forEach(file => {
       const reader = new FileReader()
       reader.onload = (event) => {
         if (event.target?.result) {
-          if (target === 'damage' && damagePhotos.length < 3) {
+          if (target === 'damage') {
             setDamagePhotos(prev => [...prev, event.target!.result as string].slice(0, 3))
-          } else if (target === 'repair' && repairPhotos.length < 3) {
+          } else if (target === 'repair') {
             setRepairPhotos(prev => [...prev, event.target!.result as string].slice(0, 3))
           }
         }
@@ -78,13 +78,17 @@ export default function RoundsPage() {
     setSaving(true)
 
     try {
+      const formattedObservations = specificLocation
+        ? `[Lugar: ${specificLocation}] ${observations}`.trim()
+        : observations
+
       // 1. Insert Round
       const { data: roundData, error: roundError } = await supabase
         .from('rounds')
         .insert({
           operator_id: profile.id,
           zone,
-          observations,
+          observations: formattedObservations,
           has_fence_incident: hasFenceIncident,
           start_time: new Date().toISOString(),
           end_time: new Date().toISOString(),
@@ -118,7 +122,7 @@ export default function RoundsPage() {
   }
 
   const resetForm = () => {
-    setZone('Zona Umbral Pista 35L')
+    setSpecificLocation('')
     setObservations('')
     setHasFenceIncident(false)
     setDamageDescription('')
@@ -218,6 +222,18 @@ export default function RoundsPage() {
               </div>
 
               <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Lugar Específico</label>
+                <input
+                  type="text"
+                  required
+                  value={specificLocation}
+                  onChange={(e) => setSpecificLocation(e.target.value)}
+                  placeholder="Ej: Umbral Pista 35L (Calle Alpha)"
+                  className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-xs"
+                />
+              </div>
+
+              <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">Observaciones Generales</label>
                 <textarea
                   rows={2}
@@ -243,7 +259,7 @@ export default function RoundsPage() {
                 {hasFenceIncident && (
                   <div className="space-y-3 pt-2 border-t border-gray-200">
                     <div>
-                      <label className="block text-[11px] font-bold text-red-700 mb-1">Descripción del Daño / Orificio</label>
+                      <label className="block text-[11px] font-bold text-red-700 mb-1">Descripción del Daño / Orificio *</label>
                       <input
                         type="text"
                         required
@@ -257,50 +273,83 @@ export default function RoundsPage() {
                     <div>
                       <label className="block text-[11px] font-bold text-gray-700 mb-1">Fotos del Daño (Máximo 3)</label>
                       <div className="flex items-center gap-2">
-                        <label className="px-3 py-1.5 bg-gray-200 text-gray-800 text-xs rounded cursor-pointer flex items-center gap-1 font-semibold">
+                        <label className="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-800 text-xs rounded cursor-pointer flex items-center gap-1 font-semibold transition">
                           <Camera className="w-3.5 h-3.5" />
                           <span>Tomar Foto</span>
                           <input type="file" accept="image/*" multiple onChange={(e) => handlePhotoUpload(e, 'damage')} className="hidden" />
                         </label>
                         <span className="text-[10px] text-gray-500">{damagePhotos.length}/3 subidas</span>
                       </div>
+                      {damagePhotos.length > 0 && (
+                        <div className="flex gap-2 mt-2">
+                          {damagePhotos.map((url, idx) => (
+                            <div key={idx} className="relative w-14 h-14 rounded-lg overflow-hidden border border-gray-300">
+                              <img src={url} alt="Daño" className="w-full h-full object-cover" />
+                              <button
+                                type="button"
+                                onClick={() => setDamagePhotos(prev => prev.filter((_, i) => i !== idx))}
+                                className="absolute top-0 right-0 bg-red-600 text-white text-[10px] w-4 h-4 flex items-center justify-center rounded-bl font-bold"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-bold text-gray-700 mb-1">Acción Tomada</label>
+                      <label className="block text-[11px] font-bold text-gray-700 mb-1">Acción Tomada *</label>
                       <input
                         type="text"
                         required
                         value={actionTaken}
                         onChange={(e) => setActionTaken(e.target.value)}
-                        placeholder="Ej: Se parchó malla temporalmente"
+                        placeholder="Ej: Se parchó malla temporalmente con alambre"
                         className="w-full p-2 border border-gray-300 rounded text-xs"
                       />
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={wasRepaired}
-                        onChange={(e) => setWasRepaired(e.target.checked)}
-                        className="w-4 h-4 text-emerald-600 rounded"
-                      />
-                      <span className="text-xs font-semibold text-gray-700">¿Daño reparado completamente?</span>
+                    <div>
+                      <label className="block text-[11px] font-bold text-gray-700 mb-1">Fotos de la Acción Tomada / Reparación (Máximo 3)</label>
+                      <div className="flex items-center gap-2">
+                        <label className="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-800 text-xs rounded cursor-pointer flex items-center gap-1 font-semibold transition">
+                          <Camera className="w-3.5 h-3.5" />
+                          <span>Foto Acción / Reparación</span>
+                          <input type="file" accept="image/*" multiple onChange={(e) => handlePhotoUpload(e, 'repair')} className="hidden" />
+                        </label>
+                        <span className="text-[10px] text-gray-500">{repairPhotos.length}/3 subidas</span>
+                      </div>
+                      {repairPhotos.length > 0 && (
+                        <div className="flex gap-2 mt-2">
+                          {repairPhotos.map((url, idx) => (
+                            <div key={idx} className="relative w-14 h-14 rounded-lg overflow-hidden border border-gray-300">
+                              <img src={url} alt="Acción/Reparación" className="w-full h-full object-cover" />
+                              <button
+                                type="button"
+                                onClick={() => setRepairPhotos(prev => prev.filter((_, i) => i !== idx))}
+                                className="absolute top-0 right-0 bg-red-600 text-white text-[10px] w-4 h-4 flex items-center justify-center rounded-bl font-bold"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
-                    {wasRepaired && (
-                      <div>
-                        <label className="block text-[11px] font-bold text-gray-700 mb-1">Fotos de la Reparación (Máx 3)</label>
-                        <div className="flex items-center gap-2">
-                          <label className="px-3 py-1.5 bg-gray-200 text-gray-800 text-xs rounded cursor-pointer flex items-center gap-1 font-semibold">
-                            <Camera className="w-3.5 h-3.5" />
-                            <span>Foto Reparación</span>
-                            <input type="file" accept="image/*" multiple onChange={(e) => handlePhotoUpload(e, 'repair')} className="hidden" />
-                          </label>
-                          <span className="text-[10px] text-gray-500">{repairPhotos.length}/3 subidas</span>
-                        </div>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-2 pt-1">
+                      <input
+                        type="checkbox"
+                        id="wasRepairedCheck"
+                        checked={wasRepaired}
+                        onChange={(e) => setWasRepaired(e.target.checked)}
+                        className="w-4 h-4 text-emerald-600 rounded cursor-pointer"
+                      />
+                      <label htmlFor="wasRepairedCheck" className="text-xs font-semibold text-gray-700 cursor-pointer">
+                        ¿Daño reparado completamente?
+                      </label>
+                    </div>
                   </div>
                 )}
               </div>
