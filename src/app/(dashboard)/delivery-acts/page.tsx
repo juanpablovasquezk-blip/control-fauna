@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth/AuthProvider'
 import { DeliveryAct, Client, AnimalRecord } from '@/types'
-import { FileCheck, Printer, Camera, Plus, FileText, CheckCircle } from 'lucide-react'
+import { FileCheck, Printer, Camera, Plus, FileText, CheckCircle, Eye, X } from 'lucide-react'
 
 export default function DeliveryActsPage() {
   const [acts, setActs] = useState<DeliveryAct[]>([])
@@ -135,6 +135,9 @@ export default function DeliveryActsPage() {
     }
   }
 
+  const [showFormatPreview, setShowFormatPreview] = useState(false)
+  const [selectedPreviewAct, setSelectedPreviewAct] = useState<DeliveryAct | null>(null)
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -145,22 +148,34 @@ export default function DeliveryActsPage() {
             <h1 className="text-xl font-bold text-gray-900">Actas de Entrega de Animales</h1>
           </div>
           <p className="text-xs text-gray-500 mt-1">
-            Generación de actas oficiales, impresión en impresora WiFi y escaneo de actas firmadas.
+            Generación de actas oficiales, impresión directa WiFi y trazabilidad de animales entregados.
           </p>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl shadow transition"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Nueva Acta de Entrega</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              setSelectedPreviewAct(null)
+              setShowFormatPreview(true)
+            }}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold text-xs rounded-xl shadow-sm transition"
+          >
+            <Eye className="w-4 h-4 text-gray-600" />
+            <span>Ver Formato Modelo</span>
+          </button>
+          <button
+            onClick={() => setShowModal(true)}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow transition"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Nueva Acta de Entrega</span>
+          </button>
+        </div>
       </div>
 
       {/* Acts List */}
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-          <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wider">Historial de Actas</h3>
+          <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wider">Historial de Actas Emitidas</h3>
           <span className="text-xs text-gray-500">{acts.length} actas</span>
         </div>
 
@@ -194,11 +209,26 @@ export default function DeliveryActsPage() {
 
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => window.print()}
+                    onClick={() => {
+                      setSelectedPreviewAct(act)
+                      setShowFormatPreview(true)
+                    }}
                     className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-semibold rounded flex items-center gap-1"
                   >
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>Ver Acta</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setSelectedPreviewAct(act)
+                      setShowFormatPreview(true)
+                      setTimeout(() => window.print(), 300)
+                    }}
+                    className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold rounded flex items-center gap-1"
+                  >
                     <Printer className="w-3.5 h-3.5" />
-                    <span>Imprimir WiFi</span>
+                    <span>Imprimir</span>
                   </button>
 
                   <button
@@ -346,6 +376,136 @@ export default function DeliveryActsPage() {
                 className="px-4 py-2 bg-emerald-600 text-white text-xs font-semibold rounded hover:bg-emerald-700 disabled:opacity-50"
               >
                 Guardar Acta Escaneada
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal 3: Vista Previa del Formato Oficial de Acta */}
+      {showFormatPreview && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white w-full max-w-3xl rounded-2xl p-6 sm:p-8 space-y-6 shadow-2xl my-8">
+            <div className="flex items-start justify-between border-b border-gray-200 pb-4 print:hidden">
+              <div>
+                <h3 className="text-base font-bold text-gray-900">Vista Previa de Acta Oficial de Entrega</h3>
+                <p className="text-xs text-gray-500">Documento listo para impresión WiFi o guardado digital.</p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => window.print()}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow transition flex items-center gap-1.5"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>Imprimir / Descargar PDF</span>
+                </button>
+
+                <button
+                  onClick={() => setShowFormatPreview(false)}
+                  className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+
+            {/* Printable Official Document Format */}
+            <div className="border border-gray-300 rounded-xl p-6 bg-white space-y-6 text-xs text-gray-900 shadow-inner font-sans">
+              {/* Document Header */}
+              <div className="flex items-center justify-between border-b-2 border-gray-900 pb-4">
+                <div>
+                  <h2 className="text-sm font-black text-gray-900 uppercase tracking-wide">
+                    SERVICIO DE CONTROL Y MITIGACIÓN DE FAUNA AEROPORTUARIA
+                  </h2>
+                  <p className="text-[11px] text-gray-600 font-semibold">
+                    Unidad de Gestión de Fauna y Tenencia Responsable
+                  </p>
+                </div>
+                <div className="text-right">
+                  <span className="inline-block px-3 py-1 bg-blue-100 text-blue-900 font-black text-sm rounded-lg border border-blue-200">
+                    {selectedPreviewAct?.act_number || 'ACT-2026-MODELO'}
+                  </span>
+                  <p className="text-[10px] text-gray-500 mt-1">
+                    Fecha: {selectedPreviewAct ? new Date(selectedPreviewAct.delivery_datetime).toLocaleDateString() : new Date().toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+
+              <div className="text-center py-1 bg-gray-100 font-black uppercase text-xs tracking-wider rounded border border-gray-200">
+                ACTA OFICIAL DE ENTREGA Y CUSTODIA DE ANIMAL
+              </div>
+
+              {/* Section 1: Antecedentes */}
+              <div className="space-y-2 border-b border-gray-200 pb-3">
+                <h4 className="font-bold text-gray-900 uppercase text-[11px]">1. Antecedentes del Cliente Solicitante</h4>
+                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                  <p><strong>Cliente / Entidad:</strong> {selectedPreviewAct?.client?.name || 'DGAC - Dirección General de Aeronáutica Civil'}</p>
+                  <p><strong>Lugar de Captura / Origen:</strong> {selectedPreviewAct?.capture_location || 'Área Aeroportuaria (Pistas / Lado Aire)'}</p>
+                  <p><strong>Fecha / Hora Entrega:</strong> {selectedPreviewAct ? new Date(selectedPreviewAct.delivery_datetime).toLocaleString() : new Date().toLocaleString()}</p>
+                </div>
+              </div>
+
+              {/* Section 2: Detalle del Animal */}
+              <div className="space-y-2 border-b border-gray-200 pb-3">
+                <h4 className="font-bold text-gray-900 uppercase text-[11px]">2. Identificación del Animal Entregado</h4>
+                <div className="grid grid-cols-3 gap-2 bg-gray-50 p-3 rounded-lg border border-gray-200 text-[11px]">
+                  <p><strong>Especie:</strong> {selectedPreviewAct?.species || 'Perro / Gato'}</p>
+                  <p><strong>Sexo:</strong> {selectedPreviewAct?.sex || 'Macho / Hembra'}</p>
+                  <p><strong>Tamaño:</strong> {selectedPreviewAct?.size || 'Mediano'}</p>
+                  <p><strong>Color / Señas:</strong> {selectedPreviewAct?.color_features || 'No especificado'}</p>
+                  <p><strong>Edad Aparente:</strong> {selectedPreviewAct?.apparent_age || 'Adulto'}</p>
+                  <p><strong>Estado de Salud:</strong> Saludable / En custodia</p>
+                </div>
+              </div>
+
+              {/* Section 3: Receptor */}
+              <div className="space-y-2 border-b border-gray-200 pb-3">
+                <h4 className="font-bold text-gray-900 uppercase text-[11px]">3. Datos de la Persona o Agrupación Receptora</h4>
+                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                  <p><strong>Nombre Completo:</strong> {selectedPreviewAct?.receiver_name || 'Nombre Receptor'}</p>
+                  <p><strong>RUT Receptor:</strong> {selectedPreviewAct?.receiver_rut || '12.345.678-9'}</p>
+                  <p><strong>Organización / Refugio:</strong> {selectedPreviewAct?.receiver_organization || 'Fundación Protección Animal'}</p>
+                  <p><strong>Teléfono / Domicilio:</strong> {selectedPreviewAct?.receiver_phone || '+56 9 1234 5678'} | {selectedPreviewAct?.receiver_address || 'Dirección de Destino'}</p>
+                </div>
+              </div>
+
+              {/* Section 4: Cláusula legal */}
+              <div className="space-y-1 bg-amber-50/70 p-3 rounded-lg border border-amber-200 text-[10px] text-gray-800">
+                <p className="font-bold uppercase text-amber-900">4. Compromiso de Custodia y Tenencia Responsable (Ley 21.020)</p>
+                <p>
+                  El receptor individualizado declara recibir conforme el animal descrito en esta acta, asumiendo su alimentación,
+                  resguardo veterinario, vacunación y protección, eximiendo al Servicio de Control de Fauna de cualquier responsabilidad posterior.
+                </p>
+              </div>
+
+              {/* Section 5: Firmas */}
+              <div className="pt-8 grid grid-cols-2 gap-8 text-center text-[11px]">
+                <div className="space-y-1">
+                  <div className="border-b border-gray-400 w-48 mx-auto h-12 flex items-end justify-center pb-1">
+                    <span className="text-[10px] text-gray-400 italic">(Firma Digital / Manuscrita)</span>
+                  </div>
+                  <p className="font-bold">FIRMA ENTREGANTE</p>
+                  <p className="text-[10px] text-gray-600">Servicio Control de Fauna Aeroportuaria</p>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="border-b border-gray-400 w-48 mx-auto h-12 flex items-end justify-center pb-1">
+                    <span className="text-[10px] text-gray-400 italic">(Firma Digital / Manuscrita)</span>
+                  </div>
+                  <p className="font-bold">FIRMA RECEPTOR</p>
+                  <p className="text-[10px] text-gray-600">{selectedPreviewAct?.receiver_name || 'Nombre Receptor'} - {selectedPreviewAct?.receiver_rut || 'RUT'}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-gray-100 print:hidden">
+              <button
+                type="button"
+                onClick={() => setShowFormatPreview(false)}
+                className="px-5 py-2 bg-gray-900 text-white font-bold text-xs rounded-xl shadow hover:bg-gray-800"
+              >
+                Cerrar Vista Previa
               </button>
             </div>
           </div>
