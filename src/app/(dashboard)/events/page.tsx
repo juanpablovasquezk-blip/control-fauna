@@ -69,6 +69,38 @@ export default function EventsPage() {
   const [animalFile, setAnimalFile] = useState<File | null>(null)
   const [animalPreview, setAnimalPreview] = useState<string | null>(null)
 
+  // Closure Form State
+  const [closureType, setClosureType] = useState<ClosureType>('Captura total')
+  const [closureObs, setClosureObs] = useState('')
+  const [hasFenceDamage, setHasFenceDamage] = useState(false)
+  const [damageLocation, setDamageLocation] = useState('')
+  const [damageDescription, setDamageDescription] = useState('')
+  const [damageFile, setDamageFile] = useState<File | null>(null)
+  const [repairFile, setRepairFile] = useState<File | null>(null)
+  const [damagePreview, setDamagePreview] = useState<string | null>(null)
+  const [repairPreview, setRepairPreview] = useState<string | null>(null)
+  const [closing, setClosing] = useState(false)
+
+  // History Filter State
+  const [filterPreset, setFilterPreset] = useState<'7d' | '30d' | 'month' | 'all'>('7d')
+  const [startDate, setStartDate] = useState<string>('')
+  const [endDate, setEndDate] = useState<string>('')
+  const [searchTerm, setSearchTerm] = useState('')
+
+  useEffect(() => {
+    fetchInitialData()
+  }, [])
+
+  // Set default dates (last 7 days)
+  useEffect(() => {
+    const today = new Date()
+    const sevenDaysAgo = new Date()
+    sevenDaysAgo.setDate(today.getDate() - 7)
+
+    setEndDate(today.toISOString().split('T')[0])
+    setStartDate(sevenDaysAgo.toISOString().split('T')[0])
+  }, [])
+
   const openAnimalModal = (eventId: string) => {
     setShowAnimalModal(eventId)
     setSpecies('')
