@@ -2,15 +2,45 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { AnimalRecord } from '@/types'
-import { FileText, CheckCircle2, AlertCircle, Search } from 'lucide-react'
+import { 
+  FileText, CheckCircle2, AlertCircle, Search, Calendar, 
+  Filter, FileSpreadsheet, ChevronDown, ChevronUp, Clock, 
+  Dog, Award, CheckCircle, AlertTriangle
+} from 'lucide-react'
+
+const MONTHS_CONFIG = [
+  { value: '12', name: 'Diciembre' },
+  { value: '11', name: 'Noviembre' },
+  { value: '10', name: 'Octubre' },
+  { value: '09', name: 'Septiembre' },
+  { value: '08', name: 'Agosto' },
+  { value: '07', name: 'Julio' },
+  { value: '06', name: 'Junio' },
+  { value: '05', name: 'Mayo' },
+  { value: '04', name: 'Abril' },
+  { value: '03', name: 'Marzo' },
+  { value: '02', name: 'Febrero' },
+  { value: '01', name: 'Enero' }
+]
 
 export default function ExpedientsPage() {
-  const [animals, setAnimals] = useState<AnimalRecord[]>([])
+  const [animals, setAnimals] = useState<any[]>([])
+  const [clients, setClients] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState('')
   const supabase = createClient()
 
+  // Filters state
+  const [searchTerm, setSearchTerm] = useState('')
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear())
+  const [selectedMonth, setSelectedMonth] = useState<string>('') // '' = todos los meses
+  const [filterClient, setFilterClient] = useState<string>('')
+  const [filterSpecies, setFilterSpecies] = useState<string>('')
+  const [filterStatus, setFilterStatus] = useState<string>('')
+
+  // Collapsed months state: { "08": false, "07": true }
+  const [collapsedMonths, setCollapsedMonths] = useState<{ [key: string]: boolean }>({})
+
+  // Modal audit state
   const [selectedAnimal, setSelectedAnimal] = useState<any | null>(null)
   const [cleaningsCount, setCleaningsCount] = useState<number>(0)
 
@@ -20,27 +50,63 @@ export default function ExpedientsPage() {
 
   async function fetchExpedients() {
     setLoading(true)
-    const { data: animalData, error } = await supabase
+    const { data: animalData } = await supabase
       .from('animal_records')
       .select('*, event:events(*, client:clients(*)), delivery_acts(*), adoptions:adoption_records(*)')
       .order('created_at', { ascending: false })
+
+    const { data: clientData } = await supabase
+      .from('clients')
+      .select('id, name')
+      .order('name')
 
     const { data: cleaningData } = await supabase
       .from('kennel_cleanings')
       .select('id')
 
     if (cleaningData) setCleaningsCount(cleaningData.length)
-    if (animalData) setAnimals(animalData as any[])
+    if (clientData) setClients(clientData)
+
+    if (animalData) {
+      setAnimals(animalData as any[])
+
+      // Auto expand logic:
+      // Current month OR months with pending items -> expanded (collapsed: false)
+      // Otherwise -> collapsed (collapsed: true)
+      const currentMonthStr = String(new Date().getMonth() + 1).padStart(2, '0')
+      const currentYear = new Date().getFullYear()
+
+      const initialCollapsedState: { [key: string]: boolean } = {}
+      
+      MONTHS_CONFIG.forEach(m => {
+        const monthAnimals = animalData.filter((a: any) => {
+          const d = new Date(a.created_at)
+          const mStr = String(d.getMonth() + 1).padStart(2, '0')
+          return d.getFullYear() === currentYear && mStr === m.value
+        })
+
+        const hasPending = monthAnimals.some((a: any) => a.animal_status !== 'Finalizado')
+        const isCurrentMonth = m.value === currentMonthStr
+
+        // If it's current month OR has pending items -> EXPANDED (collapsed = false)
+        // Else -> COLLAPSED (collapsed = true)
+        initialCollapsedState[m.value] = !(isCurrentMonth || hasPending)
+      })
+
+      setCollapsedMonths(initialCollapsedState)
+    }
+
     setLoading(false)
   }
 
-  const filteredAnimals = animals.filter(a => 
-    a.species?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    a.animal_status?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    a.color_features?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    a.event?.client?.name?.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const toggleMonth = (monthVal: string) => {
+    setCollapsedMonths(prev => ({
+      ...prev,
+      [monthVal]: !prev[monthVal]
+    }))
+  }
 
+  // Calculate checklist items for any animal
   const getChecklistItems = (animal: any) => {
     const isDog = animal.species === 'Perro'
     const isCat = animal.species === 'Gato'
@@ -82,9 +148,98 @@ export default function ExpedientsPage() {
     }
   }
 
+  // Filter animals based on year and search/selectors
+  const yearAnimals = animals.filter(a => {
+    const d = new Date(a.created_at)
+    return d.getFullYear() === selectedYear
+  })
+
+  const filteredAnimals = yearAnimals.filter(a => {
+    const d = new Date(a.created_at)
+    const monthStr = String(d.getMonth() + 1).padStart(2, '0')
+
+    const matchesSearch = !searchTerm || (
+      a.species?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      a.animal_status?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      a.color_features?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      a.event?.client?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      a.id.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+
+    const matchesMonth = !selectedMonth || monthStr === selectedMonth
+    const matchesClient = !filterClient || a.event?.client_id === filterClient
+    const matchesSpecies = !filterSpecies || a.species === filterSpecies
+    const matchesStatus = !filterStatus || a.animal_status === filterStatus
+
+    return matchesSearch && matchesMonth && matchesClient && matchesSpecies && matchesStatus
+  })
+
+  // Calculate monthly KPIs (for the active filtered set)
+  const totalFiltered = filteredAnimals.length
+  const countInKennel = filteredAnimals.filter(a => a.animal_status === 'En canil').length
+  const countAdoption = filteredAnimals.filter(a => a.animal_status === 'Pendiente Adopción').length
+  const countFinished = filteredAnimals.filter(a => a.animal_status === 'Finalizado').length
+
+  const avgCompletion = totalFiltered === 0 ? 0 : Math.round(
+    filteredAnimals.reduce((acc, a) => {
+      const items = getChecklistItems(a)
+      const ok = items.filter(i => i.ok).length
+      return acc + (ok / items.length) * 100
+    }, 0) / totalFiltered
+  )
+
+  // Export to Excel
+  const exportToExcel = () => {
+    if (filteredAnimals.length === 0) {
+      alert('No hay expedientes para exportar con los filtros seleccionados.')
+      return
+    }
+
+    const headers = [
+      'N° Expediente',
+      'Fecha Captura',
+      'Especie',
+      'Color y Sexo',
+      'Cliente',
+      'Estado Animal',
+      'Documentos Completos',
+      'Porcentaje Completitud'
+    ]
+
+    const rows = filteredAnimals.map(a => {
+      const items = getChecklistItems(a)
+      const completedCount = items.filter(i => i.ok).length
+      const totalCount = items.length
+      const percentage = Math.round((completedCount / totalCount) * 100)
+
+      return [
+        `"EXP-${a.id.slice(0, 8).toUpperCase()}"`,
+        `"${new Date(a.created_at).toLocaleDateString('es-CL')}"`,
+        `"${a.species || ''}"`,
+        `"${a.color_features || 'No especificado'} (${a.sex || ''})"`,
+        `"${a.event?.client?.name || 'Cliente DGAC'}"`,
+        `"${a.animal_status || ''}"`,
+        `"${completedCount}/${totalCount}"`,
+        `"${percentage}%"`
+      ]
+    })
+
+    const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' 
+      + [headers.join(','), ...rows.map(e => e.join(','))].join('\n')
+
+    const encodedUri = encodeURI(csvContent)
+    const link = document.createElement('a')
+    link.setAttribute('href', encodedUri)
+    const selectedMonthName = MONTHS_CONFIG.find(m => m.value === selectedMonth)?.name || 'Anual'
+    link.setAttribute('download', `Expedientes_Digitales_${selectedYear}_${selectedMonthName}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
         <div>
           <div className="flex items-center gap-2">
@@ -92,82 +247,295 @@ export default function ExpedientsPage() {
             <h1 className="text-xl font-bold text-gray-900">Control Documental y Expediente Digital</h1>
           </div>
           <p className="text-xs text-gray-500 mt-1">
-            Auditoría de cumplimiento de fichas, fotos, actas, aseos de canil y registros RNM por animal. Haz clic en cualquier ficha para auditar el expediente.
+            Auditoría de cumplimiento de fichas, fotos, actas, aseos de canil y registros RNM por animal.
           </p>
         </div>
 
-        {/* Search Input */}
-        <div className="relative">
-          <Search className="w-4 h-4 absolute left-3 top-3 text-gray-400" />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Buscar especie, cliente, estado..."
-            className="pl-9 pr-4 py-2 bg-gray-50 border border-gray-300 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500"
-          />
+        <div className="flex items-center gap-3">
+          {/* Year selector */}
+          <div className="flex items-center gap-1 bg-gray-50 p-1.5 rounded-xl border border-gray-200 text-xs font-semibold">
+            <Calendar className="w-4 h-4 text-gray-500 ml-1" />
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(Number(e.target.value))}
+              className="bg-transparent font-bold text-gray-800 focus:outline-none pr-1"
+            >
+              <option value={2026}>2026</option>
+              <option value={2025}>2025</option>
+            </select>
+          </div>
+
+          {/* Export to Excel */}
+          <button
+            onClick={exportToExcel}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow transition cursor-pointer"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            <span>Exportar Excel</span>
+          </button>
         </div>
       </div>
 
-      {/* Expedients Cards */}
-      {loading ? (
-        <div className="p-8 text-center text-xs text-gray-500">Cargando expedientes...</div>
-      ) : filteredAnimals.length === 0 ? (
-        <div className="p-8 bg-white rounded-2xl border border-gray-200 text-center text-xs text-gray-400">
-          No hay expedientes digitales coincidentes.
+      {/* KPI Cards (Del Mes / Selección actual) */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-between">
+          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Expedientes {selectedMonth ? 'del Mes' : 'Filtrados'}</span>
+          <div className="flex items-baseline justify-between mt-2">
+            <span className="text-2xl font-black text-gray-900">{totalFiltered}</span>
+            <FileText className="w-5 h-5 text-gray-400" />
+          </div>
         </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-amber-200 bg-amber-50/20 shadow-sm flex flex-col justify-between">
+          <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">En Canil</span>
+          <div className="flex items-baseline justify-between mt-2">
+            <span className="text-2xl font-black text-amber-700">{countInKennel}</span>
+            <Dog className="w-5 h-5 text-amber-600" />
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-purple-200 bg-purple-50/20 shadow-sm flex flex-col justify-between">
+          <span className="text-[10px] font-bold text-purple-700 uppercase tracking-wider">Pendientes Adopción</span>
+          <div className="flex items-baseline justify-between mt-2">
+            <span className="text-2xl font-black text-purple-700">{countAdoption}</span>
+            <Clock className="w-5 h-5 text-purple-600" />
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-emerald-200 bg-emerald-50/20 shadow-sm flex flex-col justify-between">
+          <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Finalizados</span>
+          <div className="flex items-baseline justify-between mt-2">
+            <span className="text-2xl font-black text-emerald-700">{countFinished}</span>
+            <CheckCircle className="w-5 h-5 text-emerald-600" />
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-orange-200 bg-orange-50/20 shadow-sm flex flex-col justify-between col-span-2 sm:col-span-1">
+          <span className="text-[10px] font-bold text-orange-700 uppercase tracking-wider">Completitud Promedio</span>
+          <div className="flex items-baseline justify-between mt-2">
+            <span className="text-2xl font-black text-orange-600">{avgCompletion}%</span>
+            <Award className="w-5 h-5 text-orange-500" />
+          </div>
+        </div>
+      </div>
+
+      {/* Filter Bar */}
+      <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm space-y-3">
+        <div className="flex items-center gap-2 border-b border-gray-100 pb-3">
+          <Filter className="w-4 h-4 text-orange-600" />
+          <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wider">Filtros de Búsqueda y Auditoría</h3>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
+          {/* Search text */}
+          <div className="relative md:col-span-1">
+            <Search className="w-3.5 h-3.5 absolute left-3 top-3 text-gray-400" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Buscar especie, ID..."
+              className="w-full pl-8 pr-3 py-2 bg-gray-50 border border-gray-300 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+            />
+          </div>
+
+          {/* Month selector */}
+          <div>
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="w-full p-2 bg-gray-50 border border-gray-300 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 font-medium text-gray-700"
+            >
+              <option value="">-- Todos los Meses --</option>
+              {MONTHS_CONFIG.map(m => (
+                <option key={m.value} value={m.value}>{m.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Client selector */}
+          <div>
+            <select
+              value={filterClient}
+              onChange={(e) => setFilterClient(e.target.value)}
+              className="w-full p-2 bg-gray-50 border border-gray-300 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 font-medium text-gray-700"
+            >
+              <option value="">-- Todos los Clientes --</option>
+              {clients.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Species selector */}
+          <div>
+            <select
+              value={filterSpecies}
+              onChange={(e) => setFilterSpecies(e.target.value)}
+              className="w-full p-2 bg-gray-50 border border-gray-300 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 font-medium text-gray-700"
+            >
+              <option value="">-- Todas las Especies --</option>
+              <option value="Perro">Perro</option>
+              <option value="Gato">Gato</option>
+              <option value="Ave">Ave</option>
+              <option value="Otro">Otro</option>
+            </select>
+          </div>
+
+          {/* Status selector */}
+          <div>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="w-full p-2 bg-gray-50 border border-gray-300 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 font-medium text-gray-700"
+            >
+              <option value="">-- Todos los Estados --</option>
+              <option value="En canil">En canil</option>
+              <option value="Pendiente Adopción">Pendiente Adopción</option>
+              <option value="Finalizado">Finalizado</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Monthly Grouped Table View */}
+      {loading ? (
+        <div className="p-8 text-center text-xs text-gray-500">Cargando expedientes digitales...</div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filteredAnimals.map((a) => {
-            const items = getChecklistItems(a)
-            const completedCount = items.filter(i => i.ok).length
-            const totalCount = items.length
-            const percentage = Math.round((completedCount / totalCount) * 100)
+        <div className="space-y-4">
+          {MONTHS_CONFIG.filter(m => !selectedMonth || m.value === selectedMonth).map(m => {
+            const monthAnimals = filteredAnimals.filter(a => {
+              const d = new Date(a.created_at)
+              const mStr = String(d.getMonth() + 1).padStart(2, '0')
+              return mStr === m.value
+            })
+
+            const isCollapsed = collapsedMonths[m.value] ?? false
+            const pendingInMonth = monthAnimals.filter(a => a.animal_status !== 'Finalizado').length
 
             return (
-              <div
-                key={a.id}
-                onClick={() => setSelectedAnimal(a)}
-                className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm space-y-3 hover:border-orange-400 hover:shadow-md cursor-pointer transition group"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="px-2.5 py-1 bg-gray-100 text-gray-900 font-bold text-xs rounded-md">
-                      {a.species}
+              <div key={m.value} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                {/* Month Header Banner */}
+                <button
+                  onClick={() => toggleMonth(m.value)}
+                  className="w-full p-4 bg-gray-50 hover:bg-gray-100/80 transition flex items-center justify-between border-b border-gray-200 text-left cursor-pointer"
+                >
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <Calendar className="w-4 h-4 text-orange-600" />
+                    <span className="font-bold text-sm text-gray-900">{m.name} {selectedYear}</span>
+                    
+                    <span className="px-2.5 py-0.5 text-xs font-semibold bg-gray-200 text-gray-700 rounded-full">
+                      {monthAnimals.length} expedientes
                     </span>
-                    <span className="text-xs font-semibold text-gray-600 truncate max-w-[200px]">
-                      {a.event?.client?.name || 'Cliente DGAC'}
-                    </span>
-                  </div>
-                  <span className={`px-2.5 py-0.5 text-[10px] font-bold rounded-full ${
-                    a.animal_status === 'Finalizado' ? 'bg-emerald-100 text-emerald-800' :
-                    a.animal_status === 'Pendiente Adopción' ? 'bg-purple-100 text-purple-800' : 'bg-amber-100 text-amber-800'
-                  }`}>
-                    {a.animal_status}
-                  </span>
-                </div>
 
-                <div className="text-xs text-gray-700 space-y-1">
-                  <p><strong>Detalle:</strong> {a.color_features || 'No especificado'} ({a.sex})</p>
-                  <p><strong>Fecha Captura:</strong> {new Date(a.created_at).toLocaleDateString('es-CL')}</p>
-                </div>
+                    {pendingInMonth > 0 && (
+                      <span className="px-2.5 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-800 rounded-full flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3 text-amber-600" />
+                        {pendingInMonth} pendiente{pendingInMonth > 1 ? 's' : ''} de cierre
+                      </span>
+                    )}
+                  </div>
 
-                {/* Progress Bar */}
-                <div className="space-y-1 pt-2 border-t border-gray-100">
-                  <div className="flex justify-between text-[11px] font-semibold text-gray-600">
-                    <span className="group-hover:text-orange-600 font-bold transition">Completitud Expediente Digital</span>
-                    <span className="font-bold">{completedCount}/{totalCount} ({percentage}%)</span>
+                  <div className="flex items-center gap-2 text-xs font-semibold text-gray-500">
+                    <span>{isCollapsed ? 'Ver detalles' : 'Ocultar'}</span>
+                    {isCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
                   </div>
-                  <div className="w-full bg-gray-100 h-2.5 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full transition-all duration-300 ${
-                        percentage === 100 ? 'bg-emerald-500' : 'bg-orange-500'
-                      }`}
-                      style={{ width: `${percentage}%` }}
-                    ></div>
+                </button>
+
+                {/* Table Content */}
+                {!isCollapsed && (
+                  <div>
+                    {monthAnimals.length === 0 ? (
+                      <div className="p-6 text-center text-xs text-gray-400 italic">
+                        Sin expedientes registrados en {m.name} {selectedYear}.
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse text-xs">
+                          <thead>
+                            <tr className="bg-gray-100/70 border-b border-gray-200 text-[11px] font-bold text-gray-600 uppercase tracking-wider">
+                              <th className="p-3">N° Expediente</th>
+                              <th className="p-3">Fecha Captura</th>
+                              <th className="p-3">Especie</th>
+                              <th className="p-3">Detalle (Color / Sexo)</th>
+                              <th className="p-3">Cliente</th>
+                              <th className="p-3">Estado Animal</th>
+                              <th className="p-3">Completitud Checklist</th>
+                              <th className="p-3 text-right">Acción</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            {monthAnimals.map((a) => {
+                              const items = getChecklistItems(a)
+                              const completedCount = items.filter(i => i.ok).length
+                              const totalCount = items.length
+                              const percentage = Math.round((completedCount / totalCount) * 100)
+
+                              return (
+                                <tr
+                                  key={a.id}
+                                  onClick={() => setSelectedAnimal(a)}
+                                  className="hover:bg-orange-50/40 cursor-pointer transition"
+                                >
+                                  <td className="p-3 font-mono font-bold text-orange-600">
+                                    EXP-{a.id.slice(0, 8).toUpperCase()}
+                                  </td>
+                                  <td className="p-3 font-medium text-gray-700">
+                                    {new Date(a.created_at).toLocaleDateString('es-CL')}
+                                  </td>
+                                  <td className="p-3">
+                                    <span className="px-2 py-0.5 bg-gray-100 font-bold text-gray-900 rounded text-[11px]">
+                                      {a.species}
+                                    </span>
+                                  </td>
+                                  <td className="p-3 text-gray-700">
+                                    {a.color_features || 'No especificado'} <span className="text-gray-400">({a.sex})</span>
+                                  </td>
+                                  <td className="p-3 text-gray-700 font-medium truncate max-w-[180px]">
+                                    {a.event?.client?.name || 'Cliente DGAC'}
+                                  </td>
+                                  <td className="p-3">
+                                    <span className={`px-2.5 py-0.5 text-[10px] font-bold rounded-full ${
+                                      a.animal_status === 'Finalizado' ? 'bg-emerald-100 text-emerald-800' :
+                                      a.animal_status === 'Pendiente Adopción' ? 'bg-purple-100 text-purple-800' : 'bg-amber-100 text-amber-800'
+                                    }`}>
+                                      {a.animal_status}
+                                    </span>
+                                  </td>
+                                  <td className="p-3 min-w-[160px]">
+                                    <div className="space-y-1">
+                                      <div className="flex justify-between text-[10px] font-bold text-gray-600">
+                                        <span>Documentación</span>
+                                        <span>{completedCount}/{totalCount} ({percentage}%)</span>
+                                      </div>
+                                      <div className="w-full bg-gray-200 h-1.5 rounded-full overflow-hidden">
+                                        <div
+                                          className={`h-full ${percentage === 100 ? 'bg-emerald-500' : 'bg-orange-500'}`}
+                                          style={{ width: `${percentage}%` }}
+                                        ></div>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="p-3 text-right">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        setSelectedAnimal(a)
+                                      }}
+                                      className="px-3 py-1 bg-orange-100 hover:bg-orange-200 text-orange-800 font-bold text-[11px] rounded-lg transition cursor-pointer"
+                                    >
+                                      👁️ Auditar
+                                    </button>
+                                  </td>
+                                </tr>
+                              )
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
-                  <p className="text-[10px] text-right text-orange-600 font-bold mt-1">Haz clic para auditar checklist ➔</p>
-                </div>
+                )}
               </div>
             )
           })}
@@ -197,7 +565,7 @@ export default function ExpedientsPage() {
 
                 <button
                   onClick={() => setSelectedAnimal(null)}
-                  className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl transition"
+                  className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl transition cursor-pointer"
                 >
                   ✕ Cerrar
                 </button>
@@ -256,7 +624,7 @@ export default function ExpedientsPage() {
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
                 <button
                   onClick={() => setSelectedAnimal(null)}
-                  className="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white font-bold text-xs rounded-xl shadow transition"
+                  className="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white font-bold text-xs rounded-xl shadow transition cursor-pointer"
                 >
                   Cerrar Auditoría
                 </button>
