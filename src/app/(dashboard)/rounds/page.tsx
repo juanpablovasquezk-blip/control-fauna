@@ -64,9 +64,6 @@ export default function RoundsPage() {
     const { data: zoneData } = await supabase.from('airport_zones').select('*').order('name')
     if (zoneData) {
       setZones(zoneData)
-      if (zoneData.length > 0) {
-        setZone(zoneData[0].name)
-      }
     }
 
     // Fetch active operators for Admin dropdown
@@ -142,9 +139,37 @@ export default function RoundsPage() {
     })
   }
 
+  const openNewRoundModal = () => {
+    setZone('')
+    setSpecificLocation('')
+    setObservations('')
+    setHasFenceIncident(false)
+    setDamageDescription('')
+    setActionTaken('')
+    setWasRepaired(false)
+    setDamagePhotos([])
+    setRepairPhotos([])
+    setOperatorId(profile ? profile.id : '')
+    setShowModal(true)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!profile) return
+
+    if (isAdminOrSuper && !operatorId) {
+      alert('Debe seleccionar el operador / responsable.')
+      return
+    }
+    if (!zone) {
+      alert('Debe seleccionar la zona del aeródromo.')
+      return
+    }
+    if (!specificLocation.trim()) {
+      alert('Debe ingresar el lugar específico.')
+      return
+    }
+
     setSaving(true)
 
     try {
@@ -251,7 +276,7 @@ export default function RoundsPage() {
           </p>
         </div>
         <button
-          onClick={() => setShowModal(true)}
+          onClick={openNewRoundModal}
           className="flex items-center justify-center gap-2 px-5 py-3 bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs rounded-xl shadow-md transition"
         >
           <Plus className="w-4 h-4" />
@@ -466,6 +491,7 @@ export default function RoundsPage() {
                     onChange={(e) => setOperatorId(e.target.value)}
                     className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-xs font-bold text-gray-800 focus:ring-2 focus:ring-orange-500"
                   >
+                    <option value="">-- Seleccionar Operador --</option>
                     {operators.map((op: any) => (
                       <option key={op.id} value={op.id}>
                         {op.full_name} ({op.role?.toUpperCase() || 'OPERADOR'})
@@ -476,12 +502,13 @@ export default function RoundsPage() {
               )}
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Zona del Aeródromo</label>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Zona del Aeródromo *</label>
                 <select
                   value={zone}
                   onChange={(e) => setZone(e.target.value)}
                   className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-xs"
                 >
+                  <option value="">-- Seleccionar Zona --</option>
                   {zones.map((z) => (
                     <option key={z.id} value={z.name}>{z.name}</option>
                   ))}

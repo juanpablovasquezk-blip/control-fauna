@@ -15,13 +15,19 @@ export default function KennelPage() {
   const supabase = createClient()
 
   // Cleaning Form
-  const [cleaningType, setCleaningType] = useState('Limpieza general y desinfección')
+  const [cleaningType, setCleaningType] = useState('')
   const [observations, setObservations] = useState('')
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     fetchKennelData()
   }, [])
+
+  const openCleaningModal = () => {
+    setCleaningType('')
+    setObservations('')
+    setShowCleaningModal(true)
+  }
 
   async function fetchKennelData() {
     setLoading(true)
@@ -80,6 +86,12 @@ export default function KennelPage() {
   const handleRegisterCleaning = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!profile) return
+
+    if (!cleaningType) {
+      alert('Debe seleccionar el tipo de aseo.')
+      return
+    }
+
     setSaving(true)
 
     try {
@@ -130,7 +142,7 @@ export default function KennelPage() {
           </p>
         </div>
         <button
-          onClick={() => setShowCleaningModal(true)}
+          onClick={openCleaningModal}
           disabled={activeKennels.length === 0}
           className="flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-semibold text-xs rounded-xl shadow transition"
         >
@@ -209,12 +221,13 @@ export default function KennelPage() {
 
             <form onSubmit={handleRegisterCleaning} className="space-y-3">
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Tipo de Aseo / Mantención</label>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Tipo de Aseo / Mantención *</label>
                 <select
                   value={cleaningType}
                   onChange={(e) => setCleaningType(e.target.value)}
                   className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-xs"
                 >
+                  <option value="">-- Seleccionar Tipo de Aseo --</option>
                   <option value="Limpieza general y desinfección">Limpieza general y desinfección</option>
                   <option value="Alimentación y agua fresca">Alimentación y agua fresca</option>
                   <option value="Aseo completo + alimentación">Aseo completo + alimentación</option>

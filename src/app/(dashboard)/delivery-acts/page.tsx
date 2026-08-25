@@ -22,7 +22,7 @@ export default function DeliveryActsPage() {
   const [animalId, setAnimalId] = useState('')
   const [receiverName, setReceiverName] = useState('')
   const [receiverRut, setReceiverRut] = useState('')
-  const [receiverOrg, setReceiverOrg] = useState('Fundación Protección Animal')
+  const [receiverOrg, setReceiverOrg] = useState('')
   const [receiverAddress, setReceiverAddress] = useState('')
   const [receiverPhone, setReceiverPhone] = useState('')
   const [receiverEmail, setReceiverEmail] = useState('')
@@ -38,13 +38,11 @@ export default function DeliveryActsPage() {
     const { data: clientsData } = await supabase.from('clients').select('*').eq('active', true)
     if (clientsData) {
       setClients(clientsData as Client[])
-      if (clientsData.length > 0) setClientId(clientsData[0].id)
     }
 
     const { data: animalsData } = await supabase.from('animal_records').select('*').eq('was_captured', true)
     if (animalsData) {
       setAnimals(animalsData as AnimalRecord[])
-      if (animalsData.length > 0) setAnimalId(animalsData[0].id)
     }
 
     const { data: actsData } = await supabase
@@ -54,6 +52,19 @@ export default function DeliveryActsPage() {
 
     if (actsData) setActs(actsData as DeliveryAct[])
     setLoading(false)
+  }
+
+  const openNewActModal = () => {
+    setAnimalId('')
+    setClientId('')
+    setReceiverName('')
+    setReceiverRut('')
+    setReceiverOrg('')
+    setReceiverAddress('')
+    setReceiverPhone('')
+    setReceiverEmail('')
+    setObservations('')
+    setShowModal(true)
   }
 
   const handleCreateAct = async (e: React.FormEvent) => {
@@ -163,7 +174,7 @@ export default function DeliveryActsPage() {
             <span>Ver Formato Modelo</span>
           </button>
           <button
-            onClick={() => setShowModal(true)}
+            onClick={openNewActModal}
             className="flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow transition"
           >
             <Plus className="w-4 h-4" />
@@ -253,12 +264,13 @@ export default function DeliveryActsPage() {
 
             <form onSubmit={handleCreateAct} className="space-y-3">
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Seleccionar Animal Capturado</label>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Seleccionar Animal Capturado *</label>
                 <select
                   value={animalId}
                   onChange={(e) => setAnimalId(e.target.value)}
                   className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs"
                 >
+                  <option value="">-- Seleccionar Animal Capturado --</option>
                   {animals.map(a => (
                     <option key={a.id} value={a.id}>{a.species} - {a.color_features || 'Sin color'} ({a.sex})</option>
                   ))}

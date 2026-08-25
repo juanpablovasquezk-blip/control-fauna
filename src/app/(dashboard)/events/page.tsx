@@ -42,7 +42,7 @@ export default function EventsPage() {
 
   // New Activation Form State
   const [clientId, setClientId] = useState('')
-  const [specificLocation, setSpecificLocation] = useState('Umbral Pista 35L')
+  const [specificLocation, setSpecificLocation] = useState('')
   const [zones, setZones] = useState<any[]>([])
   const [airportZone, setAirportZone] = useState('')
   const [operators, setOperators] = useState<any[]>([])
@@ -70,7 +70,7 @@ export default function EventsPage() {
   const [animalPreview, setAnimalPreview] = useState<string | null>(null)
 
   // Closure Form State
-  const [closureType, setClosureType] = useState<ClosureType>('Captura total')
+  const [closureType, setClosureType] = useState<ClosureType | ''>('')
   const [closureObs, setClosureObs] = useState('')
   const [hasFenceDamage, setHasFenceDamage] = useState(false)
   const [damageLocation, setDamageLocation] = useState('')
@@ -106,13 +106,11 @@ export default function EventsPage() {
     const { data: zoneData } = await supabase.from('airport_zones').select('*').order('name')
     if (zoneData) {
       setZones(zoneData)
-      if (zoneData.length > 0) setAirportZone(zoneData[0].name)
     }
 
     const { data: clientsData } = await supabase.from('clients').select('*').eq('active', true)
     if (clientsData) {
       setClients(clientsData as Client[])
-      if (clientsData.length > 0) setClientId(clientsData[0].id)
     }
 
     const { data: opData } = await supabase
@@ -144,6 +142,15 @@ export default function EventsPage() {
     setLoading(false)
   }
 
+  const openNewActivationModal = () => {
+    setClientId('')
+    setAirportZone('')
+    setSpecificLocation('')
+    setSituationDescription('')
+    setOperatorId(profile ? profile.id : '')
+    setShowModal(true)
+  }
+
   // Handle Preset Change
   const handlePresetChange = (preset: '7d' | '30d' | 'month' | 'all') => {
     setFilterPreset(preset)
@@ -172,6 +179,28 @@ export default function EventsPage() {
   const handleCreateActivation = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!profile) return
+
+    if (isAdminOrSuper && !operatorId) {
+      alert('Debe seleccionar el operador a cargo / responsable.')
+      return
+    }
+    if (!clientId) {
+      alert('Debe seleccionar el cliente solicitante.')
+      return
+    }
+    if (!airportZone) {
+      alert('Debe seleccionar la zona del aeródromo.')
+      return
+    }
+    if (!specificLocation.trim()) {
+      alert('Debe ingresar el lugar específico.')
+      return
+    }
+    if (!situationDescription.trim()) {
+      alert('Debe ingresar la descripción del aviso / situación.')
+      return
+    }
+
     setSaving(true)
 
     try {
@@ -184,13 +213,16 @@ export default function EventsPage() {
         specific_location: specificLocation,
         airport_zone: airportZone,
         situation_description: situationDescription,
-        general_result: generalResult,
+        general_result: generalResult || 'Captura total',
         status: 'En curso',
       })
 
       if (error) throw error
       setShowModal(false)
+      setSpecificLocation('')
       setSituationDescription('')
+      setAirportZone('')
+      setClientId('')
       fetchInitialData()
     } catch (err: any) {
       alert('Error al crear activación: ' + err.message)
@@ -467,7 +499,7 @@ export default function EventsPage() {
           </p>
         </div>
         <button
-          onClick={() => setShowModal(true)}
+          onClick={openNewActivationModal}
           className="flex items-center justify-center gap-2 px-5 py-3 bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs rounded-xl shadow-md transition"
         >
           <Plus className="w-4 h-4" />
@@ -800,6 +832,7 @@ export default function EventsPage() {
                     onChange={(e) => setOperatorId(e.target.value)}
                     className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-bold text-gray-800 focus:bg-white focus:ring-2 focus:ring-orange-500"
                   >
+                    <option value="">-- Seleccionar Operador --</option>
                     {operators.map((op: any) => (
                       <option key={op.id} value={op.id}>
                         {op.full_name} ({op.role?.toUpperCase() || 'OPERADOR'})
@@ -810,12 +843,13 @@ export default function EventsPage() {
               )}
 
               <div>
-                <label className="block font-bold text-gray-700 mb-1">Cliente Solicitante</label>
+                <label className="block font-bold text-gray-700 mb-1">Cliente Solicitante *</label>
                 <select
                   value={clientId}
                   onChange={(e) => setClientId(e.target.value)}
                   className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-medium focus:bg-white focus:ring-2 focus:ring-orange-500"
                 >
+                  <option value="">-- Seleccionar Cliente --</option>
                   {clients.map((c) => (
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
@@ -823,12 +857,13 @@ export default function EventsPage() {
               </div>
 
               <div>
-                <label className="block font-bold text-gray-700 mb-1">Zona del Aeródromo</label>
+                <label className="block font-bold text-gray-700 mb-1">Zona del Aeródromo *</label>
                 <select
                   value={airportZone}
                   onChange={(e) => setAirportZone(e.target.value)}
                   className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-medium focus:bg-white focus:ring-2 focus:ring-orange-500"
                 >
+                  <option value="">-- Seleccionar Zona --</option>
                   {zones.map((z) => (
                     <option key={z.id} value={z.name}>{z.name}</option>
                   ))}
@@ -1050,6 +1085,7 @@ export default function EventsPage() {
                   onChange={(e: any) => setClosureType(e.target.value)}
                   className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-bold text-gray-800 focus:ring-2 focus:ring-orange-500"
                 >
+                  <option value="">-- Seleccionar Motivo de Cierre --</option>
                   <option value="Captura total">Captura total (Todos los animales capturados)</option>
                   <option value="Captura parcial">Captura parcial (Captura de algunos animales)</option>
                   <option value="Abandono">Abandono (Animales abandonaron el área por su cuenta)</option>
