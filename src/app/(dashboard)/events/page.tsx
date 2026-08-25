@@ -101,6 +101,104 @@ export default function EventsPage() {
     setStartDate(sevenDaysAgo.toISOString().split('T')[0])
   }, [])
 
+  async function fetchInitialData() {
+    setLoading(true)
+    const { data: zoneData } = await supabase.from('airport_zones').select('*').order('name')
+    if (zoneData) {
+      setZones(zoneData)
+      if (zoneData.length > 0) setAirportZone(zoneData[0].name)
+    }
+
+    const { data: clientsData } = await supabase.from('clients').select('*').eq('active', true)
+    if (clientsData) {
+      setClients(clientsData as Client[])
+      if (clientsData.length > 0) setClientId(clientsData[0].id)
+    }
+
+    const { data: opData } = await supabase
+      .from('profiles')
+      .select('id, full_name, role')
+      .eq('active', true)
+      .order('full_name')
+
+    if (opData) setOperators(opData)
+
+    // Explicitly specify operator_id foreign key relation to avoid PostgREST ambiguity with closed_by
+    const { data: eventsData, error: eventsError } = await supabase
+      .from('events')
+      .select('*, client:clients(*), operator:profiles!operator_id(*), animal_records(*)')
+      .order('created_at', { ascending: false })
+
+    if (eventsError) {
+      console.warn('Error fetching events with operator profile, executing fallback query:', eventsError.message)
+      const { data: fallbackEvents } = await supabase
+        .from('events')
+        .select('*, client:clients(*), animal_records(*)')
+        .order('created_at', { ascending: false })
+
+      if (fallbackEvents) setActivations(fallbackEvents as EventActivation[])
+    } else if (eventsData) {
+      setActivations(eventsData as EventActivation[])
+    }
+
+    setLoading(false)
+  }
+
+  // Handle Preset Change
+  const handlePresetChange = (preset: '7d' | '30d' | 'month' | 'all') => {
+    setFilterPreset(preset)
+    const today = new Date()
+    
+    if (preset === '7d') {
+      const d = new Date()
+      d.setDate(today.getDate() - 7)
+      setStartDate(d.toISOString().split('T')[0])
+      setEndDate(today.toISOString().split('T')[0])
+    } else if (preset === '30d') {
+      const d = new Date()
+      d.setDate(today.getDate() - 30)
+      setStartDate(d.toISOString().split('T')[0])
+      setEndDate(today.toISOString().split('T')[0])
+    } else if (preset === 'month') {
+      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1)
+      setStartDate(firstDay.toISOString().split('T')[0])
+      setEndDate(today.toISOString().split('T')[0])
+    } else if (preset === 'all') {
+      setStartDate('')
+      setEndDate('')
+    }
+  }
+
+  const handleCreateActivation = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!profile) return
+    setSaving(true)
+
+    try {
+      const selectedOperatorId = (isAdminOrSuper && operatorId) ? operatorId : profile.id
+      const code = `FAU-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${Math.floor(1000 + Math.random() * 9000)}`
+      const { error } = await supabase.from('events').insert({
+        event_code: code,
+        client_id: clientId,
+        operator_id: selectedOperatorId,
+        specific_location: specificLocation,
+        airport_zone: airportZone,
+        situation_description: situationDescription,
+        general_result: generalResult,
+        status: 'En curso',
+      })
+
+      if (error) throw error
+      setShowModal(false)
+      setSituationDescription('')
+      fetchInitialData()
+    } catch (err: any) {
+      alert('Error al crear activación: ' + err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const openAnimalModal = (eventId: string) => {
     setShowAnimalModal(eventId)
     setSpecies('')
