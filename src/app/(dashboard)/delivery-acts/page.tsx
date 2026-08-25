@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth/AuthProvider'
 import { DeliveryAct, Client, AnimalRecord } from '@/types'
 import { FileCheck, Printer, Camera, Plus, FileText, CheckCircle, Eye, X } from 'lucide-react'
+import { createDeliveryActAction } from './actions'
 
 export default function DeliveryActsPage() {
   const [acts, setActs] = useState<DeliveryAct[]>([])
@@ -105,7 +106,7 @@ export default function DeliveryActsPage() {
       const selectedAnimal = animals.find(a => a.id === animalId) as any
       const targetClientId = selectedAnimal?.event?.client_id || clientId || clients[0]?.id
 
-      const { data, error } = await supabase.from('delivery_acts').insert({
+      const res = await createDeliveryActAction({
         act_number: actNumber,
         event_id: selectedAnimal?.event_id || animalId,
         client_id: targetClientId,
@@ -126,13 +127,9 @@ export default function DeliveryActsPage() {
         receiver_phone: receiverPhone,
         receiver_email: receiverEmail,
         observations,
-      }).select().single()
+      })
 
-      if (error) throw error
-
-      // Update animal status
-      const nextStatus = selectedAnimal?.species === 'Gato' ? 'Finalizado' : 'Pendiente Adopción'
-      await supabase.from('animal_records').update({ animal_status: nextStatus }).eq('id', animalId)
+      if (!res.success) throw new Error(res.error)
 
       setShowModal(false)
       fetchActsData()
