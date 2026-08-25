@@ -62,6 +62,7 @@ export interface Round {
   has_fence_incident: boolean;
   created_at: string;
   operator?: Profile;
+  fence_incidents?: FenceIncident[];
 }
 
 export interface FenceIncident {
