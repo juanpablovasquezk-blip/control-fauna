@@ -326,27 +326,39 @@ export default function EventsPage() {
     }
   }
 
+  // Helper to format local YYYY-MM-DD date string without UTC timezone shift
+  function getLocalDateString(dateInput: string | Date | undefined | null): string {
+    if (!dateInput) return ''
+    const d = new Date(dateInput)
+    if (isNaN(d.getTime())) return ''
+    const year = d.getFullYear()
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
   // Filter activations for Active vs Closed
-  const activeActivations = activations.filter((ev) => ev.status === 'En curso')
+  const activeActivations = activations.filter((ev) => ev.status !== 'Cerrado')
 
   const closedActivations = activations.filter((ev) => {
-    if (ev.status !== 'Cerrado') return false
+    const isClosed = ev.status?.toLowerCase() === 'cerrado'
+    if (!isClosed) return false
 
-    // Date filtering
-    const eventDate = new Date(ev.closed_at || ev.created_at).toISOString().split('T')[0]
+    // Date filtering using local date string
+    const eventDateStr = getLocalDateString(ev.closed_at || ev.created_at || ev.event_date)
 
-    if (startDate && eventDate < startDate) return false
-    if (endDate && eventDate > endDate) return false
+    if (startDate && eventDateStr && eventDateStr < startDate) return false
+    if (endDate && eventDateStr && eventDateStr > endDate) return false
 
     // Text search
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase()
-      const matchesCode = ev.event_code.toLowerCase().includes(term)
+      const matchesCode = ev.event_code?.toLowerCase().includes(term)
       const matchesClient = ev.client?.name?.toLowerCase().includes(term)
       const matchesLocation = ev.specific_location?.toLowerCase().includes(term)
       const matchesZone = ev.airport_zone?.toLowerCase().includes(term)
       const matchesClosure = ev.closure_type?.toLowerCase().includes(term)
-      const matchesObs = ev.closure_observations?.toLowerCase().includes(term)
+      const matchesObs = ev.closure_observations?.toLowerCase().includes(term) || ev.observations?.toLowerCase().includes(term)
 
       return matchesCode || matchesClient || matchesLocation || matchesZone || matchesClosure || matchesObs
     }
