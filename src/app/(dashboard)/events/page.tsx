@@ -268,30 +268,49 @@ export default function EventsPage() {
         repairPhotoUrl = await uploadImageFile(repairFile, `fence_repair/${showCloseModal.id}`)
       }
 
-      const updatePayload: any = {
+      // Base payload using columns guaranteed to exist in schema
+      const basePayload: any = {
         status: 'Cerrado',
+        general_result: closureType === 'Captura total' || closureType === 'Captura parcial' ? closureType : closureType === 'Abandono' ? 'Animales escaparon' : 'Sin hallazgo',
+        observations: closureObs,
+        has_perimeter_damage: hasFenceDamage,
+      }
+
+      if (hasFenceDamage) {
+        const fullDesc = damageLocation ? `[Ubicación Daño: ${damageLocation}]\n${damageDescription}` : damageDescription
+        basePayload.damage_description = fullDesc
+        basePayload.damage_photo_urls = [damagePhotoUrl]
+        basePayload.damage_repaired = true
+        basePayload.repair_photo_urls = [repairPhotoUrl]
+      }
+
+      // Full payload including dedicated closure columns from 05_event_closure.sql
+      const fullPayload = {
+        ...basePayload,
         closure_type: closureType,
         closure_observations: closureObs,
         closed_at: new Date().toISOString(),
         closed_by: profile.id,
-        has_perimeter_damage: hasFenceDamage,
-        general_result: closureType === 'Captura total' || closureType === 'Captura parcial' ? closureType : 'Sin hallazgo'
+        damage_location: damageLocation,
       }
 
-      if (hasFenceDamage) {
-        updatePayload.damage_location = damageLocation
-        updatePayload.damage_description = damageDescription
-        updatePayload.damage_photo_urls = [damagePhotoUrl]
-        updatePayload.damage_repaired = true
-        updatePayload.repair_photo_urls = [repairPhotoUrl]
-      }
-
-      const { error } = await supabase
+      let { error } = await supabase
         .from('events')
-        .update(updatePayload)
+        .update(fullPayload)
         .eq('id', showCloseModal.id)
 
-      if (error) throw error
+      // Fallback if dedicated columns are missing from Supabase schema cache
+      if (error && (error.message.includes('schema cache') || error.message.includes('column'))) {
+        console.warn('Dedicated closure columns not found in DB yet, executing fallback update:', error.message)
+        const fallbackRes = await supabase
+          .from('events')
+          .update(basePayload)
+          .eq('id', showCloseModal.id)
+
+        if (fallbackRes.error) throw fallbackRes.error
+      } else if (error) {
+        throw error
+      }
 
       alert(`Procedimiento ${showCloseModal.event_code} cerrado exitosamente.`)
       setShowCloseModal(null)
