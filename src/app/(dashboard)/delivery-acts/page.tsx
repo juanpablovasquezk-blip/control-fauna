@@ -27,11 +27,21 @@ export default function DeliveryActsPage() {
   const [receiverPhone, setReceiverPhone] = useState('')
   const [receiverEmail, setReceiverEmail] = useState('')
   const [observations, setObservations] = useState('')
+  const [operators, setOperators] = useState<any[]>([])
+  const [deliveringUserId, setDeliveringUserId] = useState('')
   const [saving, setSaving] = useState(false)
+
+  const isAdminOrSuper = profile && ['admin', 'supervisor'].includes(profile.role)
 
   useEffect(() => {
     fetchActsData()
   }, [])
+
+  useEffect(() => {
+    if (profile && !deliveringUserId && !isAdminOrSuper) {
+      setDeliveringUserId(profile.id)
+    }
+  }, [profile, isAdminOrSuper])
 
   async function fetchActsData() {
     setLoading(true)
@@ -40,9 +50,14 @@ export default function DeliveryActsPage() {
       setClients(clientsData as Client[])
     }
 
-    const { data: animalsData } = await supabase.from('animal_records').select('*').eq('was_captured', true)
+    const { data: animalsData } = await supabase.from('animal_records').select('*, event:events(*, client:clients(*))').eq('was_captured', true)
     if (animalsData) {
       setAnimals(animalsData as AnimalRecord[])
+    }
+
+    const { data: opsData } = await supabase.from('profiles').select('id, full_name, role').order('full_name')
+    if (opsData) {
+      setOperators(opsData)
     }
 
     const { data: actsData } = await supabase
@@ -64,22 +79,36 @@ export default function DeliveryActsPage() {
     setReceiverPhone('')
     setReceiverEmail('')
     setObservations('')
+    setDeliveringUserId(isAdminOrSuper ? '' : (profile?.id || ''))
     setShowModal(true)
   }
 
   const handleCreateAct = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!profile) return
+
+    const finalDeliveringUser = isAdminOrSuper ? deliveringUserId : profile.id
+    if (!finalDeliveringUser) {
+      alert('Debe seleccionar el operador / usuario que realiza la entrega.')
+      return
+    }
+
+    if (!animalId) {
+      alert('Debe seleccionar un animal capturado.')
+      return
+    }
+
     setSaving(true)
 
     try {
       const actNumber = `ACT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`
-      const selectedAnimal = animals.find(a => a.id === animalId)
+      const selectedAnimal = animals.find(a => a.id === animalId) as any
+      const targetClientId = selectedAnimal?.event?.client_id || clientId || clients[0]?.id
 
       const { data, error } = await supabase.from('delivery_acts').insert({
         act_number: actNumber,
         event_id: selectedAnimal?.event_id || animalId,
-        client_id: clientId,
+        client_id: targetClientId,
         animal_id: animalId,
         capture_datetime: new Date().toISOString(),
         capture_location: 'Área Aeroportuaria',
@@ -89,7 +118,7 @@ export default function DeliveryActsPage() {
         color_features: selectedAnimal?.color_features || '',
         apparent_age: selectedAnimal?.apparent_age || 'Adulto',
         delivery_datetime: new Date().toISOString(),
-        delivering_user: profile.id,
+        delivering_user: finalDeliveringUser,
         receiver_name: receiverName,
         receiver_rut: receiverRut,
         receiver_organization: receiverOrg,
@@ -263,6 +292,22 @@ export default function DeliveryActsPage() {
             <h3 className="text-lg font-bold text-gray-900">Emisión de Acta de Entrega</h3>
 
             <form onSubmit={handleCreateAct} className="space-y-3">
+              {isAdminOrSuper && (
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Operador / Usuario que Entrega *</label>
+                  <select
+                    value={deliveringUserId}
+                    onChange={(e) => setDeliveringUserId(e.target.value)}
+                    className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs font-semibold"
+                  >
+                    <option value="">-- Seleccionar Operador --</option>
+                    {operators.map(op => (
+                      <option key={op.id} value={op.id}>{op.full_name} ({op.role})</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">Seleccionar Animal Capturado *</label>
                 <select
@@ -484,10 +529,9 @@ export default function DeliveryActsPage() {
 
               {/* Section 4: Cláusula legal */}
               <div className="space-y-1 bg-amber-50/70 p-3 rounded-lg border border-amber-200 text-[10px] text-gray-800">
-                <p className="font-bold uppercase text-amber-900">4. Compromiso de Custodia y Tenencia Responsable (Ley 21.020)</p>
-                <p>
-                  El receptor individualizado declara recibir conforme el animal descrito en esta acta, asumiendo su alimentación,
-                  resguardo veterinario, vacunación y protección, eximiendo al Servicio de Control de Fauna de cualquier responsabilidad posterior.
+                <p className="font-bold uppercase text-amber-900">4. DECLARACIÓN Y COMPROMISO DE CUSTODIA</p>
+                <p className="leading-relaxed">
+                  Por medio de la presente, MINERQUIM LTDA. hace entrega del animal individualizado en esta acta, y quien suscribe en calidad de receptor declara haberlo recibido, asumiendo la custodia y responsabilidad por su cuidado y bienestar desde el momento de la entrega. Los antecedentes del rescate se encuentran registrados en el sistema correspondiente, asociados al ID de Rescate indicado en esta acta.
                 </p>
               </div>
 
