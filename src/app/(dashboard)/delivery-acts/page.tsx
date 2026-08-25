@@ -7,6 +7,16 @@ import { DeliveryAct, Client, AnimalRecord } from '@/types'
 import { FileCheck, Printer, Camera, Plus, FileText, CheckCircle, Eye, X } from 'lucide-react'
 import { createDeliveryActAction, getDeliveryActsDataAction, updateSignedScanAction } from './actions'
 
+function toTitleCase(str: string | undefined | null): string {
+  if (!str) return ''
+  return str
+    .toLowerCase()
+    .trim()
+    .split(' ')
+    .map(word => word ? word.charAt(0).toUpperCase() + word.slice(1) : '')
+    .join(' ')
+}
+
 export default function DeliveryActsPage() {
   const [acts, setActs] = useState<DeliveryAct[]>([])
   const [clients, setClients] = useState<Client[]>([])
@@ -493,7 +503,7 @@ export default function DeliveryActsPage() {
                   <p><strong>Especie:</strong> {selectedPreviewAct?.species || 'Perro / Gato'}</p>
                   <p><strong>Sexo:</strong> {selectedPreviewAct?.sex || 'Macho / Hembra'}</p>
                   <p><strong>Tamaño:</strong> {selectedPreviewAct?.size || 'Mediano'}</p>
-                  <p><strong>Color / Señas:</strong> {selectedPreviewAct?.color_features || 'No especificado'}</p>
+                  <p><strong>Color / Señas:</strong> {toTitleCase(selectedPreviewAct?.color_features) || 'No especificado'}</p>
                   <p><strong>Edad Aparente:</strong> {selectedPreviewAct?.apparent_age || 'Adulto'}</p>
                   <p><strong>Estado de Salud:</strong> Saludable / En custodia</p>
                 </div>
@@ -503,10 +513,10 @@ export default function DeliveryActsPage() {
               <div className="space-y-2 border-b border-gray-200 pb-3">
                 <h4 className="font-bold text-gray-900 uppercase text-[11px]">3. Datos de la Persona o Agrupación Receptora</h4>
                 <div className="grid grid-cols-2 gap-2 text-[11px]">
-                  <p><strong>Nombre Completo:</strong> {selectedPreviewAct?.receiver_name || 'Nombre Receptor'}</p>
+                  <p><strong>Nombre Completo:</strong> {toTitleCase(selectedPreviewAct?.receiver_name) || 'Nombre Receptor'}</p>
                   <p><strong>RUT Receptor:</strong> {selectedPreviewAct?.receiver_rut || '12.345.678-9'}</p>
-                  <p><strong>Organización / Refugio:</strong> {selectedPreviewAct?.receiver_organization || 'Fundación Protección Animal'}</p>
-                  <p><strong>Teléfono / Domicilio:</strong> {selectedPreviewAct?.receiver_phone || '+56 9 1234 5678'} | {selectedPreviewAct?.receiver_address || 'Dirección de Destino'}</p>
+                  <p><strong>Organización / Refugio:</strong> {toTitleCase(selectedPreviewAct?.receiver_organization) || 'Particular'}</p>
+                  <p><strong>Teléfono / Domicilio:</strong> {selectedPreviewAct?.receiver_phone || '+56 9 1234 5678'} | {toTitleCase(selectedPreviewAct?.receiver_address) || 'Dirección de Destino'}</p>
                 </div>
               </div>
 
@@ -519,23 +529,38 @@ export default function DeliveryActsPage() {
               </div>
 
               {/* Section 5: Firmas */}
-              <div className="pt-8 grid grid-cols-2 gap-8 text-center text-[11px]">
-                <div className="space-y-1">
-                  <div className="border-b border-gray-400 w-48 mx-auto h-12 flex items-end justify-center pb-1">
-                    <span className="text-[10px] text-gray-400 italic">(Firma Digital / Manuscrita)</span>
-                  </div>
-                  <p className="font-bold">FIRMA ENTREGANTE</p>
-                  <p className="text-[10px] text-gray-600">Servicio Control de Fauna Aeroportuaria</p>
-                </div>
+              {(() => {
+                const deliveringUserObj = operators.find(op => op.id === selectedPreviewAct?.delivering_user)
+                const deliveringName = deliveringUserObj ? toTitleCase(deliveringUserObj.full_name) : 'Operador Servicio Control de Fauna'
+                const deliveringRut = deliveringUserObj?.rut ? ` - RUT: ${deliveringUserObj.rut}` : ''
+                const receiverNameFormatted = selectedPreviewAct ? toTitleCase(selectedPreviewAct.receiver_name) : 'Nombre Receptor'
 
-                <div className="space-y-1">
-                  <div className="border-b border-gray-400 w-48 mx-auto h-12 flex items-end justify-center pb-1">
-                    <span className="text-[10px] text-gray-400 italic">(Firma Digital / Manuscrita)</span>
+                return (
+                  <div className="pt-8 grid grid-cols-2 gap-8 text-center text-[11px]">
+                    <div className="space-y-1">
+                      <div className="border-b border-gray-400 w-48 mx-auto h-12 flex items-end justify-center pb-1">
+                        <span className="text-[10px] text-gray-400 italic">(Firma Digital / Manuscrita)</span>
+                      </div>
+                      <p className="font-bold">FIRMA ENTREGANTE</p>
+                      <p className="text-[10px] text-gray-800 font-bold">{deliveringName}</p>
+                      <p className="text-[9px] text-gray-600 font-medium">
+                        Servicio Control de Fauna Aeroportuaria{deliveringRut}
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="border-b border-gray-400 w-48 mx-auto h-12 flex items-end justify-center pb-1">
+                        <span className="text-[10px] text-gray-400 italic">(Firma Digital / Manuscrita)</span>
+                      </div>
+                      <p className="font-bold">FIRMA RECEPTOR</p>
+                      <p className="text-[10px] text-gray-800 font-bold">{receiverNameFormatted}</p>
+                      <p className="text-[9px] text-gray-600 font-medium">
+                        RUT: {selectedPreviewAct?.receiver_rut || 'RUT Receptor'}
+                      </p>
+                    </div>
                   </div>
-                  <p className="font-bold">FIRMA RECEPTOR</p>
-                  <p className="text-[10px] text-gray-600">{selectedPreviewAct?.receiver_name || 'Nombre Receptor'} - {selectedPreviewAct?.receiver_rut || 'RUT'}</p>
-                </div>
-              </div>
+                )
+              })()}
             </div>
 
             <div className="flex justify-end gap-2 pt-2 border-t border-gray-100 print:hidden">

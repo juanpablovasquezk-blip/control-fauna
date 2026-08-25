@@ -43,6 +43,7 @@ export default function SettingsPage() {
   const [userEmail, setUserEmail] = useState('')
   const [userPassword, setUserPassword] = useState('')
   const [userFullName, setUserFullName] = useState('')
+  const [userRut, setUserRut] = useState('')
   const [userRole, setUserRole] = useState('canes')
   const [userActive, setUserActive] = useState(true)
 
@@ -102,6 +103,7 @@ export default function SettingsPage() {
     setUserEmail('')
     setUserPassword('')
     setUserFullName('')
+    setUserRut('')
     setUserRole('canes')
     setUserActive(true)
     setShowUserModal(true)
@@ -112,6 +114,7 @@ export default function SettingsPage() {
     setUserEmail(user.email)
     setUserPassword('') // Clear password field for edits
     setUserFullName(user.full_name)
+    setUserRut(user.rut || '')
     setUserRole(user.role)
     setUserActive(user.active)
     setShowUserModal(true)
@@ -126,6 +129,7 @@ export default function SettingsPage() {
         const res = await updateUserAction({
           id: editingUser.id,
           fullName: userFullName,
+          rut: userRut,
           role: userRole,
           active: userActive
         })
@@ -136,6 +140,7 @@ export default function SettingsPage() {
           email: userEmail,
           password: userPassword,
           fullName: userFullName,
+          rut: userRut,
           role: userRole
         })
         if (!res.success) throw new Error(res.error)
@@ -215,7 +220,7 @@ export default function SettingsPage() {
 
     try {
       if (editingClient) {
-        const res = await updateClientAction(clientData)
+        const res = await updateClientAction(editingClient.id, clientData)
         if (!res.success) throw new Error(res.error)
       } else {
         const res = await createClientAction(clientData)
@@ -418,7 +423,7 @@ export default function SettingsPage() {
                       </span>
                     )}
                   </div>
-                  <p className="text-[11px] text-gray-500">{p.email}</p>
+                  <p className="text-[11px] text-gray-500">{p.email} {p.rut ? `| RUT: ${p.rut}` : ''}</p>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="px-2 py-0.5 bg-gray-100 text-gray-800 text-[10px] font-bold uppercase rounded border border-gray-200">
@@ -621,16 +626,30 @@ export default function SettingsPage() {
             </div>
 
             <form onSubmit={handleSaveUser} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Nombre Completo</label>
-                <input
-                  type="text"
-                  required
-                  value={userFullName}
-                  onChange={(e) => setUserFullName(e.target.value)}
-                  placeholder="Ej: Pedro Soto"
-                  className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded text-xs text-gray-900"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Nombre Completo *</label>
+                  <input
+                    type="text"
+                    required
+                    value={userFullName}
+                    onChange={(e) => setUserFullName(e.target.value)}
+                    placeholder="Ej: Victor Cornejo"
+                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded text-xs text-gray-900"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">RUT Operador / Usuario *</label>
+                  <input
+                    type="text"
+                    required
+                    value={userRut}
+                    onChange={(e) => setUserRut(e.target.value)}
+                    placeholder="12.345.678-9"
+                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded text-xs text-gray-900"
+                  />
+                </div>
               </div>
 
               <div>

@@ -20,7 +20,7 @@ export async function getDeliveryActsDataAction() {
 
     const { data: opsData, error: opsErr } = await supabaseAdmin
       .from('profiles')
-      .select('id, full_name, role')
+      .select('id, full_name, role, rut')
       .order('full_name')
 
     if (opsErr) throw opsErr
