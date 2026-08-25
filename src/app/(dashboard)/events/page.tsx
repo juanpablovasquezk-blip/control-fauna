@@ -50,151 +50,82 @@ export default function EventsPage() {
   const [saving, setSaving] = useState(false)
 
   // Animal Record Form State
-  const [species, setSpecies] = useState<'Perro' | 'Gato' | 'Murciélago'>('Perro')
-  const [sex, setSex] = useState<'Macho' | 'Hembra' | 'Indeterminado'>('Macho')
-  const [size, setSize] = useState<'Pequeño' | 'Mediano' | 'Grande'>('Mediano')
+  const [species, setSpecies] = useState<string>('')
+  const [sex, setSex] = useState<string>('')
+  const [size, setSize] = useState<string>('')
   const [colorFeatures, setColorFeatures] = useState('')
-  const [apparentAge, setApparentAge] = useState<'Cachorro/juvenil' | 'Adulto' | 'Senior' | 'Indeterminada'>('Adulto')
+  const [apparentAge, setApparentAge] = useState<string>('Adulto')
   const [wasCaptured, setWasCaptured] = useState(true)
+  const [animalFile, setAnimalFile] = useState<File | null>(null)
+  const [animalPreview, setAnimalPreview] = useState<string | null>(null)
 
-  // Closure Form State
-  const [closureType, setClosureType] = useState<ClosureType>('Captura total')
-  const [closureObs, setClosureObs] = useState('')
-  const [hasFenceDamage, setHasFenceDamage] = useState(false)
-  const [damageLocation, setDamageLocation] = useState('')
-  const [damageDescription, setDamageDescription] = useState('')
-  const [damageFile, setDamageFile] = useState<File | null>(null)
-  const [repairFile, setRepairFile] = useState<File | null>(null)
-  const [damagePreview, setDamagePreview] = useState<string | null>(null)
-  const [repairPreview, setRepairPreview] = useState<string | null>(null)
-  const [closing, setClosing] = useState(false)
-
-  // History Filter State
-  const [filterPreset, setFilterPreset] = useState<'7d' | '30d' | 'month' | 'all'>('7d')
-  const [startDate, setStartDate] = useState<string>('')
-  const [endDate, setEndDate] = useState<string>('')
-  const [searchTerm, setSearchTerm] = useState('')
-
-  useEffect(() => {
-    fetchInitialData()
-  }, [])
-
-  // Set default dates (last 7 days)
-  useEffect(() => {
-    const today = new Date()
-    const sevenDaysAgo = new Date()
-    sevenDaysAgo.setDate(today.getDate() - 7)
-
-    setEndDate(today.toISOString().split('T')[0])
-    setStartDate(sevenDaysAgo.toISOString().split('T')[0])
-  }, [])
-
-  async function fetchInitialData() {
-    setLoading(true)
-    const { data: zoneData } = await supabase.from('airport_zones').select('*').order('name')
-    if (zoneData) {
-      setZones(zoneData)
-      if (zoneData.length > 0) setAirportZone(zoneData[0].name)
-    }
-
-    const { data: clientsData } = await supabase.from('clients').select('*').eq('active', true)
-    if (clientsData) {
-      setClients(clientsData as Client[])
-      if (clientsData.length > 0) setClientId(clientsData[0].id)
-    }
-
-    // Explicitly specify operator_id foreign key relation to avoid PostgREST ambiguity with closed_by
-    const { data: eventsData, error: eventsError } = await supabase
-      .from('events')
-      .select('*, client:clients(*), operator:profiles!operator_id(*), animal_records(*)')
-      .order('created_at', { ascending: false })
-
-    if (eventsError) {
-      console.warn('Error fetching events with operator profile, executing fallback query:', eventsError.message)
-      const { data: fallbackEvents } = await supabase
-        .from('events')
-        .select('*, client:clients(*), animal_records(*)')
-        .order('created_at', { ascending: false })
-
-      if (fallbackEvents) setActivations(fallbackEvents as EventActivation[])
-    } else if (eventsData) {
-      setActivations(eventsData as EventActivation[])
-    }
-
-    setLoading(false)
+  const openAnimalModal = (eventId: string) => {
+    setShowAnimalModal(eventId)
+    setSpecies('')
+    setSex('')
+    setSize('')
+    setColorFeatures('')
+    setApparentAge('Adulto')
+    setWasCaptured(true)
+    setAnimalFile(null)
+    setAnimalPreview(null)
   }
 
-  // Handle Preset Change
-  const handlePresetChange = (preset: '7d' | '30d' | 'month' | 'all') => {
-    setFilterPreset(preset)
-    const today = new Date()
-    
-    if (preset === '7d') {
-      const d = new Date()
-      d.setDate(today.getDate() - 7)
-      setStartDate(d.toISOString().split('T')[0])
-      setEndDate(today.toISOString().split('T')[0])
-    } else if (preset === '30d') {
-      const d = new Date()
-      d.setDate(today.getDate() - 30)
-      setStartDate(d.toISOString().split('T')[0])
-      setEndDate(today.toISOString().split('T')[0])
-    } else if (preset === 'month') {
-      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1)
-      setStartDate(firstDay.toISOString().split('T')[0])
-      setEndDate(today.toISOString().split('T')[0])
-    } else if (preset === 'all') {
-      setStartDate('')
-      setEndDate('')
-    }
-  }
-
-  const handleCreateActivation = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!profile) return
-    setSaving(true)
-
-    try {
-      const code = `FAU-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${Math.floor(1000 + Math.random() * 9000)}`
-      const { error } = await supabase.from('events').insert({
-        event_code: code,
-        client_id: clientId,
-        operator_id: profile.id,
-        specific_location: specificLocation,
-        airport_zone: airportZone,
-        situation_description: situationDescription,
-        general_result: generalResult,
-        status: 'En curso',
-      })
-
-      if (error) throw error
-      setShowModal(false)
-      setSituationDescription('')
-      fetchInitialData()
-    } catch (err: any) {
-      alert('Error al crear activación: ' + err.message)
-    } finally {
-      setSaving(false)
+  const handleAnimalFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0]
+      setAnimalFile(file)
+      setAnimalPreview(URL.createObjectURL(file))
     }
   }
 
   const handleCreateAnimalRecord = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!showAnimalModal || !profile) return
+
+    if (!species) {
+      alert('Debe seleccionar la especie del animal.')
+      return
+    }
+    if (!sex) {
+      alert('Debe seleccionar el sexo.')
+      return
+    }
+    if (!size) {
+      alert('Debe seleccionar el tamaño.')
+      return
+    }
+    if (!colorFeatures.trim()) {
+      alert('Debe ingresar el color o señas características.')
+      return
+    }
+    if (wasCaptured && !animalFile) {
+      alert('En cualquier captura debe haber un registro fotográfico. Por favor suba una foto del animal.')
+      return
+    }
+
     setSaving(true)
 
     try {
+      let photoUrl = ''
+      if (animalFile) {
+        photoUrl = await uploadImageFile(animalFile, `animal_photos/${showAnimalModal}`)
+      }
+
+      const photoUrls = photoUrl ? [photoUrl] : []
+
       const { data: animalData, error: animalError } = await supabase
         .from('animal_records')
         .insert({
           event_id: showAnimalModal,
-          species,
-          sex,
-          size,
+          species: species as any,
+          sex: sex as any,
+          size: size as any,
           color_features: colorFeatures,
-          apparent_age: apparentAge,
+          apparent_age: (apparentAge || 'Adulto') as any,
           was_captured: wasCaptured,
           animal_status: wasCaptured ? 'En canil' : 'Escapó',
+          photo_urls: photoUrls,
         })
         .select()
         .single()
@@ -204,13 +135,15 @@ export default function EventsPage() {
       if (wasCaptured && animalData && (species === 'Perro' || species === 'Gato')) {
         await supabase.from('kennel_records').insert({
           animal_id: animalData.id,
-          species,
+          species: species as any,
           entry_responsible: profile.id,
           status: 'En canil',
         })
       }
 
       setShowAnimalModal(null)
+      setAnimalFile(null)
+      setAnimalPreview(null)
       setColorFeatures('')
       fetchInitialData()
       alert('Registro de animal guardado con éxito.')
@@ -451,7 +384,7 @@ export default function EventsPage() {
 
                     <div className="flex items-center gap-2 self-start sm:self-auto">
                       <button
-                        onClick={() => setShowAnimalModal(ev.id)}
+                        onClick={() => openAnimalModal(ev.id)}
                         className="px-3 py-2 bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 font-semibold text-xs rounded-xl transition flex items-center gap-1.5"
                       >
                         <Plus className="w-3.5 h-3.5" />
@@ -808,12 +741,14 @@ export default function EventsPage() {
 
             <form onSubmit={handleCreateAnimalRecord} className="space-y-3 text-xs">
               <div>
-                <label className="block font-bold text-gray-700 mb-1">Especie</label>
+                <label className="block font-bold text-gray-700 mb-1">Especie *</label>
                 <select
+                  required
                   value={species}
                   onChange={(e: any) => setSpecies(e.target.value)}
-                  className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-medium"
+                  className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-medium text-xs focus:bg-white focus:ring-2 focus:ring-orange-500"
                 >
+                  <option value="">-- Seleccionar Especie --</option>
                   <option value="Perro">Perro</option>
                   <option value="Gato">Gato</option>
                   <option value="Murciélago">Murciélago</option>
@@ -822,24 +757,28 @@ export default function EventsPage() {
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block font-bold text-gray-700 mb-1">Sexo</label>
+                  <label className="block font-bold text-gray-700 mb-1">Sexo *</label>
                   <select
+                    required
                     value={sex}
                     onChange={(e: any) => setSex(e.target.value)}
-                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-medium"
+                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-medium text-xs focus:bg-white focus:ring-2 focus:ring-orange-500"
                   >
+                    <option value="">-- Seleccionar --</option>
                     <option value="Macho">Macho</option>
                     <option value="Hembra">Hembra</option>
                     <option value="Indeterminado">Indeterminado</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block font-bold text-gray-700 mb-1">Tamaño</label>
+                  <label className="block font-bold text-gray-700 mb-1">Tamaño *</label>
                   <select
+                    required
                     value={size}
                     onChange={(e: any) => setSize(e.target.value)}
-                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-medium"
+                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-medium text-xs focus:bg-white focus:ring-2 focus:ring-orange-500"
                   >
+                    <option value="">-- Seleccionar --</option>
                     <option value="Pequeño">Pequeño</option>
                     <option value="Mediano">Mediano</option>
                     <option value="Grande">Grande</option>
@@ -848,30 +787,67 @@ export default function EventsPage() {
               </div>
 
               <div>
-                <label className="block font-bold text-gray-700 mb-1">Color / Características</label>
+                <label className="block font-bold text-gray-700 mb-1">Color / Características *</label>
                 <input
                   type="text"
+                  required
                   value={colorFeatures}
                   onChange={(e) => setColorFeatures(e.target.value)}
                   placeholder="Ej: Negro con manchas café en el pecho"
-                  className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-medium"
+                  className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-medium text-xs focus:bg-white focus:ring-2 focus:ring-orange-500"
                 />
               </div>
 
-              <div className="flex items-center gap-2 p-3 bg-orange-50 rounded-xl border border-orange-100">
+              <div className="flex items-center gap-2 p-3 bg-orange-50/60 rounded-xl border border-orange-100">
                 <input
                   type="checkbox"
                   id="wasCapturedCheck"
                   checked={wasCaptured}
                   onChange={(e) => setWasCaptured(e.target.checked)}
-                  className="w-4 h-4 text-orange-600 rounded focus:ring-orange-500"
+                  className="w-4 h-4 text-orange-600 rounded focus:ring-orange-500 cursor-pointer"
                 />
                 <label htmlFor="wasCapturedCheck" className="text-xs font-bold text-gray-800 cursor-pointer">
                   ¿Fue capturado efectivamente?
                 </label>
               </div>
 
-              <div className="flex justify-end gap-2 pt-2">
+              {/* Registro fotográfico del animal */}
+              <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 space-y-2">
+                <label className="block text-xs font-bold text-gray-800 flex items-center justify-between">
+                  <span className="flex items-center gap-1">
+                    <Camera className="w-3.5 h-3.5 text-orange-600" />
+                    <span>Registro Fotográfico del Animal</span>
+                  </span>
+                  {wasCaptured ? (
+                    <span className="text-[10px] text-red-600 font-bold">* Obligatorio en Captura</span>
+                  ) : (
+                    <span className="text-[10px] text-gray-400 font-normal">(Opcional si escapó)</span>
+                  )}
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAnimalFileChange}
+                  className="w-full text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-orange-100 file:text-orange-800 hover:file:bg-orange-200 cursor-pointer"
+                />
+                {animalPreview && (
+                  <div className="relative mt-2 w-full h-32 rounded-xl overflow-hidden border border-gray-300">
+                    <img src={animalPreview} alt="Foto del animal" className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAnimalFile(null)
+                        setAnimalPreview(null)
+                      }}
+                      className="absolute top-1.5 right-1.5 bg-red-600 text-white text-xs w-6 h-6 rounded-full flex items-center justify-center font-bold shadow"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
                 <button
                   type="button"
                   onClick={() => setShowAnimalModal(null)}
