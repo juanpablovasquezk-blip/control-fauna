@@ -25,15 +25,49 @@ export default function KennelPage() {
 
   async function fetchKennelData() {
     setLoading(true)
-    // 1. Active Animals in Kennel
+    // 1. Fetch from kennel_records
     const { data: kennelData } = await supabase
       .from('kennel_records')
       .select('*, animal:animal_records(*)')
       .eq('status', 'En canil')
 
-    if (kennelData) setActiveKennels(kennelData as KennelRecord[])
+    // 2. Fetch directly from animal_records with status 'En canil' to ensure no animal is missed
+    const { data: animalData } = await supabase
+      .from('animal_records')
+      .select('*')
+      .eq('animal_status', 'En canil')
+      .eq('was_captured', true)
 
-    // 2. Cleaning Logs
+    const list: KennelRecord[] = []
+    const seenAnimalIds = new Set<string>()
+
+    if (kennelData) {
+      for (const k of kennelData) {
+        if (k.animal_id) seenAnimalIds.add(k.animal_id)
+        list.push(k as KennelRecord)
+      }
+    }
+
+    if (animalData) {
+      for (const a of animalData) {
+        if (!seenAnimalIds.has(a.id)) {
+          seenAnimalIds.add(a.id)
+          list.push({
+            id: `virtual-${a.id}`,
+            animal_id: a.id,
+            species: a.species,
+            entry_datetime: a.created_at,
+            entry_responsible: '',
+            status: 'En canil',
+            animal: a
+          } as KennelRecord)
+        }
+      }
+    }
+
+    setActiveKennels(list)
+
+    // 3. Cleaning Logs
     const { data: cleaningData } = await supabase
       .from('kennel_cleanings')
       .select('*, operator:profiles(*)')
