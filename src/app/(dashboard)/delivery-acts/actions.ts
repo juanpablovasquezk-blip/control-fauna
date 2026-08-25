@@ -2,6 +2,55 @@
 
 import { supabaseAdmin } from '@/lib/supabase/admin'
 
+export async function getDeliveryActsDataAction() {
+  try {
+    const { data: clientsData, error: clientErr } = await supabaseAdmin
+      .from('clients')
+      .select('*')
+      .eq('active', true)
+
+    if (clientErr) throw clientErr
+
+    const { data: animalsData, error: animalErr } = await supabaseAdmin
+      .from('animal_records')
+      .select('*, event:events(*, client:clients(*))')
+      .eq('was_captured', true)
+
+    if (animalErr) throw animalErr
+
+    const { data: opsData, error: opsErr } = await supabaseAdmin
+      .from('profiles')
+      .select('id, full_name, role')
+      .order('full_name')
+
+    if (opsErr) throw opsErr
+
+    const { data: actsData, error: actErr } = await supabaseAdmin
+      .from('delivery_acts')
+      .select('*, client:clients(*), animal:animal_records(*)')
+      .order('created_at', { ascending: false })
+
+    if (actErr) throw actErr
+
+    return {
+      success: true,
+      clients: clientsData || [],
+      animals: animalsData || [],
+      operators: opsData || [],
+      acts: actsData || []
+    }
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err.message,
+      clients: [],
+      animals: [],
+      operators: [],
+      acts: []
+    }
+  }
+}
+
 export async function createDeliveryActAction(actData: {
   act_number: string
   event_id: string
@@ -40,6 +89,21 @@ export async function createDeliveryActAction(actData: {
       .update({ animal_status: nextStatus })
       .eq('id', actData.animal_id)
 
+    return { success: true, data }
+  } catch (err: any) {
+    return { success: false, error: err.message }
+  }
+}
+
+export async function updateSignedScanAction(actId: string, scanUrl: string) {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('delivery_acts')
+      .update({ signed_scan_url: scanUrl })
+      .eq('id', actId)
+      .select()
+
+    if (error) throw error
     return { success: true, data }
   } catch (err: any) {
     return { success: false, error: err.message }

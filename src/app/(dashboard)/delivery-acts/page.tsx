@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth/AuthProvider'
 import { DeliveryAct, Client, AnimalRecord } from '@/types'
 import { FileCheck, Printer, Camera, Plus, FileText, CheckCircle, Eye, X } from 'lucide-react'
-import { createDeliveryActAction } from './actions'
+import { createDeliveryActAction, getDeliveryActsDataAction, updateSignedScanAction } from './actions'
 
 export default function DeliveryActsPage() {
   const [acts, setActs] = useState<DeliveryAct[]>([])
@@ -46,27 +46,15 @@ export default function DeliveryActsPage() {
 
   async function fetchActsData() {
     setLoading(true)
-    const { data: clientsData } = await supabase.from('clients').select('*').eq('active', true)
-    if (clientsData) {
-      setClients(clientsData as Client[])
+    const res = await getDeliveryActsDataAction()
+    if (res.success) {
+      setClients(res.clients as Client[])
+      setAnimals(res.animals as AnimalRecord[])
+      setOperators(res.operators)
+      setActs(res.acts as DeliveryAct[])
+    } else {
+      console.error('Error fetching acts:', res.error)
     }
-
-    const { data: animalsData } = await supabase.from('animal_records').select('*, event:events(*, client:clients(*))').eq('was_captured', true)
-    if (animalsData) {
-      setAnimals(animalsData as AnimalRecord[])
-    }
-
-    const { data: opsData } = await supabase.from('profiles').select('id, full_name, role').order('full_name')
-    if (opsData) {
-      setOperators(opsData)
-    }
-
-    const { data: actsData } = await supabase
-      .from('delivery_acts')
-      .select('*, client:clients(*), animal:animal_records(*)')
-      .order('created_at', { ascending: false })
-
-    if (actsData) setActs(actsData as DeliveryAct[])
     setLoading(false)
   }
 
@@ -156,10 +144,8 @@ export default function DeliveryActsPage() {
     setSaving(true)
 
     try {
-      // Save simulated scan PDF URL
-      await supabase.from('delivery_acts').update({
-        signed_scan_url: scanImage
-      }).eq('id', showScanModal)
+      const res = await updateSignedScanAction(showScanModal, scanImage)
+      if (!res.success) throw new Error(res.error)
 
       setShowScanModal(null)
       setScanImage(null)
