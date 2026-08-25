@@ -5,6 +5,7 @@ export type AnimalSize = 'Pequeño' | 'Mediano' | 'Grande';
 export type ApparentAge = 'Cachorro/juvenil' | 'Adulto' | 'Senior' | 'Indeterminada';
 export type AnimalStatus = 'Capturado' | 'En canil' | 'Entregado' | 'Pendiente Adopción' | 'Finalizado' | 'Liberado' | 'Escapó';
 export type EventResult = 'Captura total' | 'Captura parcial' | 'Animales escaparon' | 'Sin hallazgo';
+export type ClosureType = 'Captura total' | 'Captura parcial' | 'Abandono' | 'Sin hallazgo';
 export type UrgencyLevel = 'Normal' | 'Urgente' | 'Crítica';
 export type RequestStatus = 'Pendiente' | 'En curso' | 'Completada' | 'Cancelada';
 
@@ -91,14 +92,21 @@ export interface EventActivation {
   general_result: EventResult;
   observations?: string;
   has_perimeter_damage: boolean;
+  damage_location?: string;
   damage_description?: string;
   damage_photo_urls?: string[];
   damage_repaired?: boolean;
   repair_photo_urls?: string[];
+  closure_type?: ClosureType | string;
+  closure_observations?: string;
+  closed_at?: string;
+  closed_by?: string;
   status: string;
   created_at: string;
   client?: Client;
   operator?: Profile;
+  closed_by_profile?: Profile;
+  animal_records?: AnimalRecord[];
 }
 
 export interface AnimalRecord {
