@@ -20,9 +20,9 @@ export default function ExpedientsPage() {
 
   async function fetchExpedients() {
     setLoading(true)
-    const { data: animalData } = await supabase
+    const { data: animalData, error } = await supabase
       .from('animal_records')
-      .select('*, event:events(*, client:clients(*)), delivery_acts(*), adoptions(*)')
+      .select('*, event:events(*, client:clients(*)), delivery_acts(*), adoptions:adoption_records(*)')
       .order('created_at', { ascending: false })
 
     const { data: cleaningData } = await supabase
