@@ -434,18 +434,19 @@ export default function DeliveryActsPage() {
 
       {/* Modal 3: Vista Previa del Formato Oficial de Acta */}
       {showFormatPreview && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white w-full max-w-3xl rounded-2xl p-6 sm:p-8 space-y-6 shadow-2xl my-8">
-            <div className="flex items-start justify-between border-b border-gray-200 pb-4 print:hidden">
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+          <div className="bg-white w-full max-w-3xl rounded-2xl p-4 sm:p-6 shadow-2xl max-h-[92vh] flex flex-col my-auto border border-gray-100">
+            {/* Modal Header - Fixed */}
+            <div className="flex items-start justify-between border-b border-gray-200 pb-3 flex-shrink-0 print:hidden">
               <div>
                 <h3 className="text-base font-bold text-gray-900">Vista Previa de Acta Oficial de Entrega</h3>
-                <p className="text-xs text-gray-500">Documento listo para impresión WiFi o guardado digital.</p>
+                <p className="text-xs text-gray-500">Documento listo para impresión WiFi o guardado digital en PDF.</p>
               </div>
 
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => window.print()}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow transition flex items-center gap-1.5"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow transition flex items-center gap-1.5 cursor-pointer"
                 >
                   <Printer className="w-4 h-4" />
                   <span>Imprimir / Descargar PDF</span>
@@ -453,15 +454,15 @@ export default function DeliveryActsPage() {
 
                 <button
                   onClick={() => setShowFormatPreview(false)}
-                  className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition"
+                  className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition cursor-pointer"
                 >
                   <X className="w-6 h-6" />
                 </button>
               </div>
             </div>
 
-            {/* Printable Official Document Format */}
-            <div className="border border-gray-300 rounded-xl p-6 bg-white space-y-6 text-xs text-gray-900 shadow-inner font-sans">
+            {/* Printable Official Document Format - Scrollable */}
+            <div className="overflow-y-auto flex-1 my-3 pr-1 space-y-5 border border-gray-300 rounded-xl p-5 bg-white text-xs text-gray-900 shadow-inner font-sans">
               {/* Document Header */}
               <div className="flex items-center justify-between border-b-2 border-gray-900 pb-4">
                 <div>
@@ -477,7 +478,7 @@ export default function DeliveryActsPage() {
                     {selectedPreviewAct?.act_number || 'ACT-2026-MODELO'}
                   </span>
                   <p className="text-[10px] text-gray-500 mt-1">
-                    Fecha: {selectedPreviewAct ? new Date(selectedPreviewAct.delivery_datetime).toLocaleDateString() : new Date().toLocaleDateString()}
+                    Fecha: {selectedPreviewAct ? new Date(selectedPreviewAct.delivery_datetime).toLocaleDateString('es-CL') : new Date().toLocaleDateString('es-CL')}
                   </p>
                 </div>
               </div>
@@ -492,7 +493,7 @@ export default function DeliveryActsPage() {
                 <div className="grid grid-cols-2 gap-2 text-[11px]">
                   <p><strong>Cliente / Entidad:</strong> {selectedPreviewAct?.client?.name || 'DGAC - Dirección General de Aeronáutica Civil'}</p>
                   <p><strong>Lugar de Captura / Origen:</strong> {selectedPreviewAct?.capture_location || 'Área Aeroportuaria (Pistas / Lado Aire)'}</p>
-                  <p><strong>Fecha / Hora Entrega:</strong> {selectedPreviewAct ? new Date(selectedPreviewAct.delivery_datetime).toLocaleString() : new Date().toLocaleString()}</p>
+                  <p><strong>Fecha / Hora Entrega:</strong> {selectedPreviewAct ? new Date(selectedPreviewAct.delivery_datetime).toLocaleString('es-CL') : new Date().toLocaleString('es-CL')}</p>
                 </div>
               </div>
 
@@ -563,11 +564,12 @@ export default function DeliveryActsPage() {
               })()}
             </div>
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-gray-100 print:hidden">
+            {/* Modal Footer - Fixed */}
+            <div className="flex justify-end gap-2 pt-3 border-t border-gray-100 flex-shrink-0 print:hidden">
               <button
                 type="button"
                 onClick={() => setShowFormatPreview(false)}
-                className="px-5 py-2 bg-gray-900 text-white font-bold text-xs rounded-xl shadow hover:bg-gray-800"
+                className="px-5 py-2 bg-gray-900 text-white font-bold text-xs rounded-xl shadow hover:bg-gray-800 transition cursor-pointer"
               >
                 Cerrar Vista Previa
               </button>
