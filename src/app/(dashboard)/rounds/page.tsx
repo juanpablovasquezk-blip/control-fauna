@@ -17,6 +17,8 @@ export default function RoundsPage() {
   // Form State
   const [zones, setZones] = useState<any[]>([])
   const [zone, setZone] = useState('')
+  const [operators, setOperators] = useState<any[]>([])
+  const [operatorId, setOperatorId] = useState('')
   const [specificLocation, setSpecificLocation] = useState('')
   const [observations, setObservations] = useState('')
   const [hasFenceIncident, setHasFenceIncident] = useState(false)
@@ -26,6 +28,14 @@ export default function RoundsPage() {
   const [damagePhotos, setDamagePhotos] = useState<string[]>([])
   const [repairPhotos, setRepairPhotos] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
+
+  const isAdminOrSuper = profile && ['admin', 'supervisor'].includes(profile.role)
+
+  useEffect(() => {
+    if (profile && !operatorId) {
+      setOperatorId(profile.id)
+    }
+  }, [profile])
 
   // Filter State (Default last 7 days)
   const [filterPreset, setFilterPreset] = useState<'7d' | '30d' | 'month' | 'all'>('7d')
@@ -58,6 +68,15 @@ export default function RoundsPage() {
         setZone(zoneData[0].name)
       }
     }
+
+    // Fetch active operators for Admin dropdown
+    const { data: opData } = await supabase
+      .from('profiles')
+      .select('id, full_name, role')
+      .eq('active', true)
+      .order('full_name')
+
+    if (opData) setOperators(opData)
 
     const { data, error } = await supabase
       .from('rounds')
@@ -129,6 +148,8 @@ export default function RoundsPage() {
     setSaving(true)
 
     try {
+      const selectedOperatorId = (isAdminOrSuper && operatorId) ? operatorId : profile.id
+
       const formattedObservations = specificLocation
         ? `[Lugar: ${specificLocation}] ${observations}`.trim()
         : observations
@@ -137,7 +158,7 @@ export default function RoundsPage() {
       const { data: roundData, error: roundError } = await supabase
         .from('rounds')
         .insert({
-          operator_id: profile.id,
+          operator_id: selectedOperatorId,
           zone,
           observations: formattedObservations,
           has_fence_incident: hasFenceIncident,
@@ -437,6 +458,23 @@ export default function RoundsPage() {
             <h3 className="text-lg font-bold text-gray-900">Registro de Ronda de Inspección</h3>
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              {isAdminOrSuper && (
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Operador / Responsable en Terreno *</label>
+                  <select
+                    value={operatorId}
+                    onChange={(e) => setOperatorId(e.target.value)}
+                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-xs font-bold text-gray-800 focus:ring-2 focus:ring-orange-500"
+                  >
+                    {operators.map((op: any) => (
+                      <option key={op.id} value={op.id}>
+                        {op.full_name} ({op.role?.toUpperCase() || 'OPERADOR'})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">Zona del Aeródromo</label>
                 <select

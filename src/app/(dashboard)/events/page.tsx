@@ -45,9 +45,19 @@ export default function EventsPage() {
   const [specificLocation, setSpecificLocation] = useState('Umbral Pista 35L')
   const [zones, setZones] = useState<any[]>([])
   const [airportZone, setAirportZone] = useState('')
+  const [operators, setOperators] = useState<any[]>([])
+  const [operatorId, setOperatorId] = useState('')
   const [situationDescription, setSituationDescription] = useState('')
   const [generalResult, setGeneralResult] = useState<'Captura total' | 'Captura parcial' | 'Animales escaparon' | 'Sin hallazgo'>('Captura total')
   const [saving, setSaving] = useState(false)
+
+  const isAdminOrSuper = profile && ['admin', 'supervisor'].includes(profile.role)
+
+  useEffect(() => {
+    if (profile && !operatorId) {
+      setOperatorId(profile.id)
+    }
+  }, [profile])
 
   // Animal Record Form State
   const [species, setSpecies] = useState<string>('')
@@ -652,6 +662,23 @@ export default function EventsPage() {
             </div>
 
             <form onSubmit={handleCreateActivation} className="space-y-3 text-xs">
+              {isAdminOrSuper && (
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">Operador a Cargo / Responsable en Terreno *</label>
+                  <select
+                    value={operatorId}
+                    onChange={(e) => setOperatorId(e.target.value)}
+                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-bold text-gray-800 focus:bg-white focus:ring-2 focus:ring-orange-500"
+                  >
+                    {operators.map((op: any) => (
+                      <option key={op.id} value={op.id}>
+                        {op.full_name} ({op.role?.toUpperCase() || 'OPERADOR'})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div>
                 <label className="block font-bold text-gray-700 mb-1">Cliente Solicitante</label>
                 <select
