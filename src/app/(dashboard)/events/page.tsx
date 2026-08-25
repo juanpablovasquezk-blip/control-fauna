@@ -272,7 +272,7 @@ export default function EventsPage() {
       const basePayload: any = {
         status: 'Cerrado',
         general_result: closureType === 'Captura total' || closureType === 'Captura parcial' ? closureType : closureType === 'Abandono' ? 'Animales escaparon' : 'Sin hallazgo',
-        observations: closureObs,
+        observations: closureObs || '',
         has_perimeter_damage: hasFenceDamage,
       }
 
@@ -288,33 +288,37 @@ export default function EventsPage() {
       const fullPayload = {
         ...basePayload,
         closure_type: closureType,
-        closure_observations: closureObs,
+        closure_observations: closureObs || '',
         closed_at: new Date().toISOString(),
         closed_by: profile.id,
-        damage_location: damageLocation,
+        damage_location: damageLocation || '',
       }
 
-      let { error } = await supabase
+      // Try updating with fullPayload first
+      let { data, error } = await supabase
         .from('events')
         .update(fullPayload)
         .eq('id', showCloseModal.id)
+        .select()
 
-      // Fallback if dedicated columns are missing from Supabase schema cache
-      if (error && (error.message.includes('schema cache') || error.message.includes('column'))) {
-        console.warn('Dedicated closure columns not found in DB yet, executing fallback update:', error.message)
+      // Fallback if dedicated columns were missing or schema error
+      if (error || !data || data.length === 0) {
+        console.warn('Full update failed or returned empty data, attempting base update fallback...', error)
         const fallbackRes = await supabase
           .from('events')
           .update(basePayload)
           .eq('id', showCloseModal.id)
+          .select()
 
         if (fallbackRes.error) throw fallbackRes.error
-      } else if (error) {
-        throw error
+        if (!fallbackRes.data || fallbackRes.data.length === 0) {
+          throw new Error('No se pudo actualizar el estado del procedimiento en la base de datos.')
+        }
       }
 
       alert(`Procedimiento ${showCloseModal.event_code} cerrado exitosamente.`)
       setShowCloseModal(null)
-      fetchInitialData()
+      await fetchInitialData()
     } catch (err: any) {
       alert('Error cerrando procedimiento: ' + err.message)
     } finally {
