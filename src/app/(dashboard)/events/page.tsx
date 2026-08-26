@@ -29,7 +29,7 @@ import {
 } from 'lucide-react'
 
 import { formatFreeText } from '@/lib/utils/formatters'
-import { createExternalHandoverAction } from './actions'
+import { createExternalHandoverAction, deleteEventAction } from './actions'
 import { 
   sendActivationWhatsAppAlert, 
   sendProcedureClosureWhatsAppAlert,
@@ -627,8 +627,8 @@ export default function EventsPage() {
     }
 
     try {
-      const { error } = await supabase.from('events').delete().eq('id', eventId)
-      if (error) throw error
+      const res = await deleteEventAction(eventId)
+      if (!res.success) throw new Error(res.error)
 
       alert(`Procedimiento ${eventCode} eliminado con éxito.`)
       if (showDetailModal?.id === eventId) setShowDetailModal(null)

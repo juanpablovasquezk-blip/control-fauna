@@ -168,3 +168,65 @@ export async function createExternalHandoverAction(data: CreateExternalHandoverP
     return { success: false, error: err?.message || 'Error inesperado al crear recepción externa' }
   }
 }
+
+export async function deleteEventAction(eventId: string) {
+  try {
+    // 1. Fetch animal records linked to this event
+    const { data: animals } = await supabaseAdmin
+      .from('animal_records')
+      .select('id')
+      .eq('event_id', eventId)
+
+    const animalIds = (animals || []).map(a => a.id)
+
+    // 2. Delete delivery acts linked to this event OR these animals
+    await supabaseAdmin
+      .from('delivery_acts')
+      .delete()
+      .eq('event_id', eventId)
+
+    if (animalIds.length > 0) {
+      await supabaseAdmin
+        .from('delivery_acts')
+        .delete()
+        .in('animal_id', animalIds)
+
+      // 3. Delete adoption_records linked to these animals
+      await supabaseAdmin
+        .from('adoptions')
+        .delete()
+        .in('animal_id', animalIds)
+
+      // 4. Delete cleaning_animals links
+      await supabaseAdmin
+        .from('cleaning_animals')
+        .delete()
+        .in('animal_id', animalIds)
+
+      // 5. Delete kennel_records
+      await supabaseAdmin
+        .from('kennel_records')
+        .delete()
+        .in('animal_id', animalIds)
+
+      // 6. Delete animal_records
+      await supabaseAdmin
+        .from('animal_records')
+        .delete()
+        .in('id', animalIds)
+    }
+
+    // 7. Finally delete the event row itself
+    const { error: deleteErr } = await supabaseAdmin
+      .from('events')
+      .delete()
+      .eq('id', eventId)
+
+    if (deleteErr) throw deleteErr
+
+    return { success: true }
+  } catch (err: any) {
+    console.error('Error in deleteEventAction:', err)
+    return { success: false, error: err?.message || 'Error al eliminar activación' }
+  }
+}
