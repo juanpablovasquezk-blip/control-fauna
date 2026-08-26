@@ -45,6 +45,8 @@ export default function EventsPage() {
   const supabase = createClient()
 
   // New Activation Form State
+  const [eventDate, setEventDate] = useState('')
+  const [eventNoticeTime, setEventNoticeTime] = useState('')
   const [clientId, setClientId] = useState('')
   const [requestedBy, setRequestedBy] = useState('')
   const [specificLocation, setSpecificLocation] = useState('')
@@ -171,7 +173,10 @@ export default function EventsPage() {
   }
 
   const openNewActivationModal = () => {
-    setClientId('')
+    const today = new Date()
+    setEventDate(today.toISOString().slice(0, 10))
+    setEventNoticeTime(today.toTimeString().slice(0, 5))
+    setClientId(clients[0]?.id || '')
     setRequestedBy('')
     setAirportZone('')
     setSpecificLocation('')
@@ -356,7 +361,10 @@ export default function EventsPage() {
 
     try {
       const selectedOperatorId = (isAdminOrSuper && operatorId) ? operatorId : profile.id
-      const code = `FAU-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${Math.floor(1000 + Math.random() * 9000)}`
+      const cleanDate = eventDate || new Date().toISOString().slice(0, 10)
+      const cleanTime = (eventNoticeTime || '12:00').slice(0, 5)
+      const dateFormatted = cleanDate.replace(/-/g, '')
+      const code = `FAU-${dateFormatted}-${Math.floor(1000 + Math.random() * 9000)}`
       
       const formattedRequestedBy = formatFreeText(requestedBy)
       let formattedLocation = formatFreeText(specificLocation)
@@ -367,6 +375,9 @@ export default function EventsPage() {
 
       const payload: any = {
         event_code: code,
+        event_date: cleanDate,
+        notice_time: cleanTime,
+        intervention_time: cleanTime,
         client_id: clientId,
         operator_id: selectedOperatorId,
         requested_by: formattedRequestedBy,
@@ -1024,103 +1035,135 @@ export default function EventsPage() {
       {/* MODAL 1: NUEVA ACTIVACIÓN DE INTERVENCIÓN                     */}
       {/* ------------------------------------------------------------- */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-2xl p-6 space-y-4 shadow-xl">
-            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden my-auto">
+            {/* Header (Fixed) */}
+            <div className="flex items-center justify-between border-b border-gray-100 p-4 sm:p-5 shrink-0 bg-white">
               <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
                 <Plus className="w-5 h-5 text-orange-600" />
                 <span>Nueva Activación / Aviso</span>
               </h3>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
+              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600 p-1">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleCreateActivation} className="space-y-3 text-xs">
-              {isAdminOrSuper && (
+            {/* Scrollable Form Body */}
+            <form onSubmit={handleCreateActivation} className="flex flex-col flex-1 overflow-hidden">
+              <div className="p-4 sm:p-6 space-y-3 text-xs overflow-y-auto flex-1">
+                {/* Fecha y Hora de Activación */}
+                <div className="bg-orange-50/50 p-3 rounded-xl border border-orange-100 space-y-2">
+                  <span className="block font-bold text-orange-900 uppercase tracking-wider text-[10px]">Fecha y Hora del Aviso / Activación</span>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-semibold text-gray-700 mb-1">Fecha de Activación *</label>
+                      <input
+                        type="date"
+                        required
+                        value={eventDate}
+                        onChange={(e) => setEventDate(e.target.value)}
+                        className="w-full p-2.5 bg-white border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-orange-500 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-gray-700 mb-1">Hora de Activación *</label>
+                      <input
+                        type="time"
+                        required
+                        value={eventNoticeTime}
+                        onChange={(e) => setEventNoticeTime(e.target.value)}
+                        className="w-full p-2.5 bg-white border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-orange-500 text-xs"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {isAdminOrSuper && (
+                  <div>
+                    <label className="block font-bold text-gray-700 mb-1">Operador a Cargo / Responsable en Terreno *</label>
+                    <select
+                      value={operatorId}
+                      onChange={(e) => setOperatorId(e.target.value)}
+                      className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-bold text-gray-800 focus:bg-white focus:ring-2 focus:ring-orange-500"
+                    >
+                      <option value="">-- Seleccionar Operador --</option>
+                      {operators.map((op: any) => (
+                        <option key={op.id} value={op.id}>
+                          {op.full_name} ({op.role?.toUpperCase() || 'OPERADOR'})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 <div>
-                  <label className="block font-bold text-gray-700 mb-1">Operador a Cargo / Responsable en Terreno *</label>
+                  <label className="block font-bold text-gray-700 mb-1">Cliente Solicitante *</label>
                   <select
-                    value={operatorId}
-                    onChange={(e) => setOperatorId(e.target.value)}
-                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-bold text-gray-800 focus:bg-white focus:ring-2 focus:ring-orange-500"
+                    value={clientId}
+                    onChange={(e) => setClientId(e.target.value)}
+                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-medium focus:bg-white focus:ring-2 focus:ring-orange-500"
                   >
-                    <option value="">-- Seleccionar Operador --</option>
-                    {operators.map((op: any) => (
-                      <option key={op.id} value={op.id}>
-                        {op.full_name} ({op.role?.toUpperCase() || 'OPERADOR'})
-                      </option>
+                    <option value="">-- Seleccionar Cliente --</option>
+                    {clients.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
                   </select>
                 </div>
-              )}
 
-              <div>
-                <label className="block font-bold text-gray-700 mb-1">Cliente Solicitante *</label>
-                <select
-                  value={clientId}
-                  onChange={(e) => setClientId(e.target.value)}
-                  className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-medium focus:bg-white focus:ring-2 focus:ring-orange-500"
-                >
-                  <option value="">-- Seleccionar Cliente --</option>
-                  {clients.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">Persona o Entidad que Activa / Solicita *</label>
+                  <input
+                    type="text"
+                    required
+                    value={requestedBy}
+                    onChange={(e) => setRequestedBy(e.target.value)}
+                    onBlur={() => setRequestedBy(formatFreeText(requestedBy))}
+                    placeholder="Ej: Torre de Control, SAM 4, Pedro Soto (DGAC)"
+                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-medium focus:bg-white focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">Zona del Aeródromo *</label>
+                  <select
+                    value={airportZone}
+                    onChange={(e) => setAirportZone(e.target.value)}
+                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-medium focus:bg-white focus:ring-2 focus:ring-orange-500"
+                  >
+                    <option value="">-- Seleccionar Zona --</option>
+                    {zones.map((z) => (
+                      <option key={z.id} value={z.name}>{z.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">Lugar Específico (Opcional)</label>
+                  <input
+                    type="text"
+                    value={specificLocation}
+                    onChange={(e) => setSpecificLocation(e.target.value)}
+                    onBlur={() => setSpecificLocation(formatFreeText(specificLocation))}
+                    placeholder="Ej: Umbral Pista 35L (Si no se especifica, se usará la Zona)"
+                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-medium focus:bg-white focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">Descripción del Aviso / Situación *</label>
+                  <textarea
+                    rows={3}
+                    required
+                    value={situationDescription}
+                    onChange={(e) => setSituationDescription(e.target.value)}
+                    placeholder="Ej: 3 perros avistados deambulando en calle de rodaje..."
+                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-medium focus:bg-white focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block font-bold text-gray-700 mb-1">Persona o Entidad que Activa / Solicita *</label>
-                <input
-                  type="text"
-                  required
-                  value={requestedBy}
-                  onChange={(e) => setRequestedBy(e.target.value)}
-                  onBlur={() => setRequestedBy(formatFreeText(requestedBy))}
-                  placeholder="Ej: Torre de Control, SAM 4, Pedro Soto (DGAC)"
-                  className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-medium focus:bg-white focus:ring-2 focus:ring-orange-500"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-gray-700 mb-1">Zona del Aeródromo *</label>
-                <select
-                  value={airportZone}
-                  onChange={(e) => setAirportZone(e.target.value)}
-                  className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-medium focus:bg-white focus:ring-2 focus:ring-orange-500"
-                >
-                  <option value="">-- Seleccionar Zona --</option>
-                  {zones.map((z) => (
-                    <option key={z.id} value={z.name}>{z.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-bold text-gray-700 mb-1">Lugar Específico (Opcional)</label>
-                <input
-                  type="text"
-                  value={specificLocation}
-                  onChange={(e) => setSpecificLocation(e.target.value)}
-                  onBlur={() => setSpecificLocation(formatFreeText(specificLocation))}
-                  placeholder="Ej: Umbral Pista 35L (Si no se especifica, se usará la Zona)"
-                  className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-medium focus:bg-white focus:ring-2 focus:ring-orange-500"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-gray-700 mb-1">Descripción del Aviso / Situación</label>
-                <textarea
-                  rows={3}
-                  required
-                  value={situationDescription}
-                  onChange={(e) => setSituationDescription(e.target.value)}
-                  placeholder="Ej: 3 perros avistados deambulando en calle de rodaje..."
-                  className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-medium focus:bg-white focus:ring-2 focus:ring-orange-500"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
+              {/* Fixed Footer */}
+              <div className="p-4 sm:p-5 border-t border-gray-100 flex justify-end gap-2 shrink-0 bg-white">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
