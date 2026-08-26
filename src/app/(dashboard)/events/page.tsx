@@ -30,6 +30,16 @@ import {
 import { formatFreeText } from '@/lib/utils/formatters'
 import { createExternalHandoverAction } from './actions'
 
+export interface ClosureAnimalForm {
+  species: 'Perro' | 'Gato'
+  sex: 'Macho' | 'Hembra' | 'Indeterminado'
+  size: 'Pequeño' | 'Mediano' | 'Grande'
+  apparent_age: 'Cachorro/juvenil' | 'Adulto' | 'Senior' | 'Indeterminada'
+  color_features: string
+  file: File | null
+  preview: string | null
+}
+
 export default function EventsPage() {
   const [activations, setActivations] = useState<EventActivation[]>([])
   const [clients, setClients] = useState<Client[]>([])
@@ -49,6 +59,8 @@ export default function EventsPage() {
   const [eventNoticeTime, setEventNoticeTime] = useState('')
   const [clientId, setClientId] = useState('')
   const [requestedBy, setRequestedBy] = useState('')
+  const [reportedAnimalCount, setReportedAnimalCount] = useState<number>(1)
+  const [reportedSpecies, setReportedSpecies] = useState<string>('Perro')
   const [specificLocation, setSpecificLocation] = useState('')
   const [zones, setZones] = useState<any[]>([])
   const [airportZone, setAirportZone] = useState('')
@@ -102,6 +114,8 @@ export default function EventsPage() {
   const [closeDate, setCloseDate] = useState('')
   const [closeTime, setCloseTime] = useState('')
   const [closureType, setClosureType] = useState<ClosureType | ''>('')
+  const [partialCapturedCount, setPartialCapturedCount] = useState<number>(1)
+  const [closureAnimals, setClosureAnimals] = useState<ClosureAnimalForm[]>([])
   const [closureObs, setClosureObs] = useState('')
   const [hasFenceDamage, setHasFenceDamage] = useState(false)
   const [damageZone, setDamageZone] = useState('')
@@ -350,12 +364,9 @@ export default function EventsPage() {
       alert('Debe ingresar la persona o entidad que activa / solicita.')
       return
     }
-    if (!airportZone) {
-      alert('Debe seleccionar la zona del aeródromo.')
-      return
-    }
-    if (!situationDescription.trim()) {
-      alert('Debe ingresar la descripción del aviso / situación.')
+    const isPerroGato = reportedSpecies === 'Perro' || reportedSpecies === 'Gato'
+    if (!isPerroGato && !situationDescription.trim()) {
+      alert('Debe ingresar la descripción del aviso / situación para este tipo de animal.')
       return
     }
 
@@ -373,7 +384,10 @@ export default function EventsPage() {
       if (!formattedLocation) {
         formattedLocation = airportZone
       }
-      const formattedSituation = formatFreeText(situationDescription)
+      let formattedSituation = formatFreeText(situationDescription)
+      if (!formattedSituation && isPerroGato) {
+        formattedSituation = `Divisado(s) ${reportedAnimalCount || 1} ${reportedSpecies}(s) en ${airportZone}.`
+      }
 
       const payload: any = {
         event_code: code,
@@ -386,17 +400,21 @@ export default function EventsPage() {
         specific_location: formattedLocation,
         airport_zone: airportZone,
         situation_description: formattedSituation,
+        reported_animal_count: reportedAnimalCount || 1,
+        reported_species: reportedSpecies || 'Perro',
         general_result: generalResult || 'Captura total',
         status: 'En curso',
       }
 
       let { error } = await supabase.from('events').insert(payload)
 
-      // Fallback if requested_by column does not exist in Supabase schema yet
-      if (error && (error.message?.includes('requested_by') || error.code === 'PGRST204')) {
-        console.warn('requested_by column missing in events table, executing fallback insert:', error.message)
+      // Fallback if new columns do not exist in Supabase schema yet
+      if (error && (error.message?.includes('reported') || error.message?.includes('requested') || error.code === 'PGRST204')) {
+        console.warn('New columns missing in events table, executing fallback insert:', error.message)
+        delete payload.reported_animal_count
+        delete payload.reported_species
         delete payload.requested_by
-        payload.situation_description = `[Solicita: ${formattedRequestedBy}] ` + formattedSituation
+        payload.situation_description = `[Aviso: ${reportedAnimalCount} ${reportedSpecies}(s)] [Solicita: ${formattedRequestedBy}] ` + formattedSituation
         const fallbackRes = await supabase.from('events').insert(payload)
         error = fallbackRes.error
       }
@@ -408,6 +426,8 @@ export default function EventsPage() {
       setSituationDescription('')
       setAirportZone('')
       setClientId('')
+      setReportedAnimalCount(1)
+      setReportedSpecies('Perro')
       fetchInitialData()
       alert('Activación creada con éxito.')
     } catch (err: any) {
@@ -512,6 +532,16 @@ export default function EventsPage() {
     }
   }
 
+  const createDefaultClosureAnimal = (spec: string): ClosureAnimalForm => ({
+    species: spec === 'Gato' ? 'Gato' : 'Perro',
+    sex: 'Macho',
+    size: 'Mediano',
+    apparent_age: 'Adulto',
+    color_features: '',
+    file: null,
+    preview: null,
+  })
+
   const openCloseModal = (event: EventActivation) => {
     const today = new Date()
     setShowCloseModal(event)
@@ -527,6 +557,76 @@ export default function EventsPage() {
     setRepairPreview(null)
     setCloseDate(event.event_date || today.toISOString().slice(0, 10))
     setCloseTime(today.toTimeString().slice(0, 5))
+
+    const count = event.reported_animal_count || 1
+    const spec = event.reported_species || 'Perro'
+    setPartialCapturedCount(Math.max(1, count - 1))
+
+    const initialArr: ClosureAnimalForm[] = []
+    for (let i = 0; i < count; i++) {
+      initialArr.push(createDefaultClosureAnimal(spec))
+    }
+    setClosureAnimals(initialArr)
+  }
+
+  const updateClosureAnimalsList = (type: string, partialNum: number, event: EventActivation) => {
+    const reportedTotal = event.reported_animal_count || 1
+    const spec = event.reported_species || 'Perro'
+    let targetCount = 0
+
+    if (type === 'Captura total') {
+      targetCount = reportedTotal
+    } else if (type === 'Captura parcial') {
+      targetCount = Math.min(Math.max(1, partialNum), reportedTotal)
+    } else {
+      targetCount = 0
+    }
+
+    setClosureAnimals((prev) => {
+      const newArr = [...prev]
+      if (newArr.length < targetCount) {
+        for (let i = newArr.length; i < targetCount; i++) {
+          newArr.push(createDefaultClosureAnimal(spec))
+        }
+      } else if (newArr.length > targetCount) {
+        newArr.length = targetCount
+      }
+      return newArr
+    })
+  }
+
+  const handleClosureTypeChange = (newType: string) => {
+    setClosureType(newType as any)
+    if (showCloseModal) {
+      updateClosureAnimalsList(newType, partialCapturedCount, showCloseModal)
+    }
+  }
+
+  const handlePartialCountChange = (newCount: number) => {
+    setPartialCapturedCount(newCount)
+    if (showCloseModal) {
+      updateClosureAnimalsList('Captura parcial', newCount, showCloseModal)
+    }
+  }
+
+  const handleClosureAnimalChange = (index: number, field: keyof ClosureAnimalForm, value: any) => {
+    setClosureAnimals((prev) => {
+      const updated = [...prev]
+      updated[index] = { ...updated[index], [field]: value }
+      return updated
+    })
+  }
+
+  const handleClosureAnimalFileChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0]
+      const preview = URL.createObjectURL(file)
+      setClosureAnimals((prev) => {
+        const updated = [...prev]
+        updated[index] = { ...updated[index], file, preview }
+        return updated
+      })
+    }
   }
 
   const handleDamageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -549,6 +649,25 @@ export default function EventsPage() {
     e.preventDefault()
     if (!showCloseModal || !profile) return
 
+    if (closureType === 'Captura total' || closureType === 'Captura parcial') {
+      if (closureAnimals.length === 0) {
+        alert('Para declarar captura debe registrar al menos 1 animal.')
+        return
+      }
+
+      for (let i = 0; i < closureAnimals.length; i++) {
+        const item = closureAnimals[i]
+        if (!item.color_features.trim()) {
+          alert(`Debe ingresar el color / características del Animal N° ${i + 1}.`)
+          return
+        }
+        if (!item.file) {
+          alert(`Debe subir la foto del Animal N° ${i + 1}.`)
+          return
+        }
+      }
+    }
+
     if (hasFenceDamage) {
       if (!damageFile) {
         alert('Debe subir la foto del daño en la reja.')
@@ -567,6 +686,55 @@ export default function EventsPage() {
     setClosing(true)
 
     try {
+      const cleanCloseDate = closeDate || new Date().toISOString().slice(0, 10)
+      const cleanCloseTime = (closeTime || '12:00').slice(0, 5)
+      let closedAtTimestamp = new Date().toISOString()
+      try {
+        closedAtTimestamp = new Date(`${cleanCloseDate}T${cleanCloseTime}:00`).toISOString()
+      } catch {
+        closedAtTimestamp = new Date().toISOString()
+      }
+
+      // Save captured animals & create kennel records
+      if (closureAnimals.length > 0) {
+        for (let i = 0; i < closureAnimals.length; i++) {
+          const item = closureAnimals[i]
+          let photoUrl = ''
+          if (item.file) {
+            photoUrl = await uploadImageFile(item.file, `animal_photos/${showCloseModal.id}`)
+          }
+          const photoUrls = photoUrl ? [photoUrl] : []
+
+          const { data: animalData, error: animalError } = await supabase
+            .from('animal_records')
+            .insert({
+              event_id: showCloseModal.id,
+              species: item.species as any,
+              sex: item.sex as any,
+              size: item.size as any,
+              color_features: formatFreeText(item.color_features),
+              apparent_age: item.apparent_age as any,
+              was_captured: true,
+              animal_status: 'En canil',
+              photo_urls: photoUrls,
+            })
+            .select()
+            .single()
+
+          if (animalError) throw animalError
+
+          if (animalData && (item.species === 'Perro' || item.species === 'Gato')) {
+            await supabase.from('kennel_records').insert({
+              animal_id: animalData.id,
+              species: item.species as any,
+              entry_datetime: closedAtTimestamp,
+              entry_responsible: profile.id,
+              status: 'En canil',
+            })
+          }
+        }
+      }
+
       let damagePhotoUrl = ''
       let repairPhotoUrl = ''
       let fullLocationString = ''
@@ -582,15 +750,6 @@ export default function EventsPage() {
           damagePhotoUrl = await uploadImageFile(damageFile, `fence_damage/${showCloseModal.id}`)
           repairPhotoUrl = await uploadImageFile(repairFile, `fence_repair/${showCloseModal.id}`)
         }
-      }
-
-      const cleanCloseDate = closeDate || new Date().toISOString().slice(0, 10)
-      const cleanCloseTime = (closeTime || '12:00').slice(0, 5)
-      let closedAtTimestamp = new Date().toISOString()
-      try {
-        closedAtTimestamp = new Date(`${cleanCloseDate}T${cleanCloseTime}:00`).toISOString()
-      } catch {
-        closedAtTimestamp = new Date().toISOString()
       }
 
       // Base payload using columns guaranteed to exist in schema
@@ -780,17 +939,14 @@ export default function EventsPage() {
                     </div>
 
                     <div className="flex items-center gap-2 self-start sm:self-auto">
-                      <button
-                        onClick={() => openAnimalModal(ev.id)}
-                        className="px-3 py-2 bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 font-semibold text-xs rounded-xl transition flex items-center gap-1.5"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Agregar Animal</span>
-                      </button>
+                      <span className="px-3 py-1.5 bg-orange-50 text-orange-800 border border-orange-200 font-bold text-xs rounded-xl flex items-center gap-1.5">
+                        <Dog className="w-3.5 h-3.5 text-orange-600" />
+                        <span>Aviso: {ev.reported_animal_count || 1} {ev.reported_species || 'Perro'}(s)</span>
+                      </span>
 
                       <button
                         onClick={() => openCloseModal(ev)}
-                        className="px-3.5 py-2 bg-gray-900 hover:bg-gray-800 text-white font-bold text-xs rounded-xl shadow transition flex items-center gap-1.5"
+                        className="px-3.5 py-2 bg-gray-900 hover:bg-gray-800 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-1.5"
                       >
                         <Lock className="w-3.5 h-3.5 text-orange-400" />
                         <span>Cerrar Procedimiento</span>
@@ -1138,6 +1294,33 @@ export default function EventsPage() {
                   />
                 </div>
 
+                {/* Cantidad y Tipo de Animal Divisado */}
+                <div className="grid grid-cols-2 gap-3 bg-amber-50/50 p-3 rounded-xl border border-amber-200/60">
+                  <div>
+                    <label className="block font-bold text-amber-900 mb-1">Cantidad Divisada *</label>
+                    <input
+                      type="number"
+                      min={1}
+                      required
+                      value={reportedAnimalCount}
+                      onChange={(e) => setReportedAnimalCount(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="w-full p-2.5 bg-white border border-gray-300 rounded-xl font-bold text-gray-900 focus:ring-2 focus:ring-orange-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-amber-900 mb-1">Tipo de Animal *</label>
+                    <select
+                      value={reportedSpecies}
+                      onChange={(e) => setReportedSpecies(e.target.value)}
+                      className="w-full p-2.5 bg-white border border-gray-300 rounded-xl font-bold text-gray-900 focus:ring-2 focus:ring-orange-500"
+                    >
+                      <option value="Perro">Perro</option>
+                      <option value="Gato">Gato</option>
+                      <option value="Otro">Otro (Escribir en Descripción)</option>
+                    </select>
+                  </div>
+                </div>
+
                 <div>
                   <label className="block font-bold text-gray-700 mb-1">Zona del Aeródromo *</label>
                   <select
@@ -1165,13 +1348,19 @@ export default function EventsPage() {
                 </div>
 
                 <div>
-                  <label className="block font-bold text-gray-700 mb-1">Descripción del Aviso / Situación *</label>
+                  <label className="block font-bold text-gray-700 mb-1">
+                    Descripción del Aviso / Situación {['Perro', 'Gato'].includes(reportedSpecies) ? '(Opcional)' : '*'}
+                  </label>
                   <textarea
                     rows={3}
-                    required
+                    required={!['Perro', 'Gato'].includes(reportedSpecies)}
                     value={situationDescription}
                     onChange={(e) => setSituationDescription(e.target.value)}
-                    placeholder="Ej: 3 perros avistados deambulando en calle de rodaje..."
+                    placeholder={
+                      ['Perro', 'Gato'].includes(reportedSpecies)
+                        ? `Opcional. Si se deja en blanco se guardará: Divisado(s) ${reportedAnimalCount} ${reportedSpecies}(s)`
+                        : 'Requerido. Ej: Avistado 1 zorro cerca de rodaje Alpha...'
+                    }
                     className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-medium focus:bg-white focus:ring-2 focus:ring-orange-500"
                   />
                 </div>
@@ -1396,7 +1585,7 @@ export default function EventsPage() {
                   <label className="block font-bold text-gray-700 mb-1">Motivo de Cierre del Procedimiento *</label>
                   <select
                     value={closureType}
-                    onChange={(e: any) => setClosureType(e.target.value)}
+                    onChange={(e: any) => handleClosureTypeChange(e.target.value)}
                     className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-bold text-gray-800 focus:ring-2 focus:ring-orange-500"
                   >
                     <option value="">-- Seleccionar Motivo de Cierre --</option>
@@ -1406,6 +1595,129 @@ export default function EventsPage() {
                     <option value="Sin hallazgo">Sin hallazgo (No se encontraron animales reportados)</option>
                   </select>
                 </div>
+
+                {/* Si es Captura Parcial: Preguntar cuántos animales capturó */}
+                {closureType === 'Captura parcial' && (
+                  <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 space-y-1.5">
+                    <label className="block font-bold text-amber-900 text-xs">
+                      ¿Cuántos animales fueron capturados? (Divisados en aviso: {showCloseModal.reported_animal_count || 1}) *
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={Math.max(1, (showCloseModal.reported_animal_count || 1) - 1)}
+                      value={partialCapturedCount}
+                      onChange={(e) => handlePartialCountChange(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="w-full p-2 bg-white border border-amber-300 rounded-lg text-xs font-bold text-gray-900"
+                    />
+                  </div>
+                )}
+
+                {/* Sub-formularios de Animales Capturados */}
+                {closureAnimals.length > 0 && (
+                  <div className="space-y-3 pt-2 border-t border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-gray-900 text-xs flex items-center gap-1.5">
+                        <Dog className="w-4 h-4 text-orange-600" />
+                        <span>Registro de Animales Capturados ({closureAnimals.length})</span>
+                      </span>
+                      <span className="text-[10px] text-gray-500 font-semibold">Foto obligatoria por cada animal</span>
+                    </div>
+
+                    {closureAnimals.map((anim, idx) => (
+                      <div key={idx} className="p-3 bg-orange-50/60 rounded-xl border border-orange-200 space-y-2.5">
+                        <div className="flex items-center justify-between border-b border-orange-200/80 pb-1.5">
+                          <span className="font-black text-orange-800 text-[11px]">
+                            Animal N° {idx + 1} de {closureAnimals.length}
+                          </span>
+                          <span className="text-[10px] px-2 py-0.5 bg-orange-200 text-orange-900 font-bold rounded-full">
+                            Capturado
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                          <div>
+                            <label className="block font-bold text-gray-700 mb-0.5 text-[10px]">Especie *</label>
+                            <select
+                              value={anim.species}
+                              onChange={(e) => handleClosureAnimalChange(idx, 'species', e.target.value)}
+                              className="w-full p-1.5 bg-white border border-gray-300 rounded-lg font-medium text-xs"
+                            >
+                              <option value="Perro">Perro</option>
+                              <option value="Gato">Gato</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block font-bold text-gray-700 mb-0.5 text-[10px]">Sexo *</label>
+                            <select
+                              value={anim.sex}
+                              onChange={(e) => handleClosureAnimalChange(idx, 'sex', e.target.value)}
+                              className="w-full p-1.5 bg-white border border-gray-300 rounded-lg font-medium text-xs"
+                            >
+                              <option value="Macho">Macho</option>
+                              <option value="Hembra">Hembra</option>
+                              <option value="Indeterminado">Indeterminado</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block font-bold text-gray-700 mb-0.5 text-[10px]">Tamaño *</label>
+                            <select
+                              value={anim.size}
+                              onChange={(e) => handleClosureAnimalChange(idx, 'size', e.target.value)}
+                              className="w-full p-1.5 bg-white border border-gray-300 rounded-lg font-medium text-xs"
+                            >
+                              <option value="Pequeño">Pequeño</option>
+                              <option value="Mediano">Mediano</option>
+                              <option value="Grande">Grande</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block font-bold text-gray-700 mb-0.5 text-[10px]">Edad Aparente *</label>
+                            <select
+                              value={anim.apparent_age}
+                              onChange={(e) => handleClosureAnimalChange(idx, 'apparent_age', e.target.value)}
+                              className="w-full p-1.5 bg-white border border-gray-300 rounded-lg font-medium text-xs"
+                            >
+                              <option value="Cachorro/juvenil">Cachorro / juvenil</option>
+                              <option value="Adulto">Adulto</option>
+                              <option value="Senior">Senior</option>
+                              <option value="Indeterminada">Indeterminada</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block font-bold text-gray-700 mb-0.5 text-[10px]">Color / Características Físicas *</label>
+                          <input
+                            type="text"
+                            required
+                            value={anim.color_features}
+                            onChange={(e) => handleClosureAnimalChange(idx, 'color_features', e.target.value)}
+                            onBlur={() => handleClosureAnimalChange(idx, 'color_features', formatFreeText(anim.color_features))}
+                            placeholder="Ej: Negro con pecho blanco, orejas caídas"
+                            className="w-full p-2 bg-white border border-gray-300 rounded-lg text-xs"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block font-bold text-gray-700 mb-0.5 text-[10px]">📷 Foto del Animal *</label>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => handleClosureAnimalFileChange(idx, e)}
+                            className="w-full text-[10px] text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-[10px] file:font-semibold file:bg-orange-100 file:text-orange-800"
+                          />
+                          {anim.preview && (
+                            <img src={anim.preview} alt={`Animal ${idx + 1}`} className="mt-1.5 h-20 w-32 object-cover rounded-lg border border-orange-300" />
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 {/* Checkbox Daño en Reja */}
                 <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 space-y-2">

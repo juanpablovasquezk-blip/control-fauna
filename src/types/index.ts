@@ -86,6 +86,8 @@ export interface EventActivation {
   handover_person_name?: string;
   handover_entity?: string;
   handover_id_photo_url?: string;
+  reported_animal_count?: number;
+  reported_species?: SpeciesType | string;
   event_type: string;
   event_date: string;
   notice_time?: string;
