@@ -132,7 +132,7 @@ export default function ExpedientsPage() {
     const hasAct = animal.delivery_acts && animal.delivery_acts.length > 0
     const act = hasAct ? animal.delivery_acts[0] : null
     const hasScan = act && !!act.signed_scan_url
-    const isFinished = animal.animal_status === 'Finalizado' || animal.animal_status === 'Pendiente Adopción'
+    const isFinished = animal.animal_status === 'Finalizado'
     const hasAdoption = animal.adoptions && animal.adoptions.length > 0
 
     if (isDog) {
@@ -142,11 +142,11 @@ export default function ExpedientsPage() {
         { label: 'Custodia e Ingreso a Canil', ok: animal.was_captured, detail: animal.was_captured ? 'En Canil Custodia' : 'No capturado' },
         { label: 'Registros de Aseo y Alimentación en Canil', ok: cleaningsCount > 0, detail: `${cleaningsCount} aseos registrados` },
         { label: 'Emisión de Acta Oficial de Entrega', ok: hasAct, detail: hasAct ? `Acta ${act.act_number}` : 'Pendiente emisión en /delivery-acts' },
-        { label: 'Escáner de Acta Firmada en Terreno', ok: hasScan, detail: hasScan ? 'Documento firmado subido' : 'Pendiente escáner' },
+        { label: 'Escáner de Acta Firmada en Terreno', ok: hasScan, detail: hasScan ? 'Documento firmado subido' : 'Pendiente escáner en /delivery-acts' },
         { label: 'Identificación Microchip / Ficha Sanitaria', ok: isFinished, detail: isFinished ? 'Completado' : 'Pendiente' },
         { label: 'Registro en Plataforma RNM / SAG / Subdere', ok: isFinished, detail: isFinished ? 'Registrado' : 'Pendiente' },
         { label: 'Contrato y Ficha de Adopción Responsable', ok: hasAdoption || isFinished, detail: hasAdoption ? 'Adopción registrada' : 'Pendiente en /adoptions' },
-        { label: 'Cierre y Auditoría Documental Completa', ok: isFinished, detail: animal.animal_status }
+        { label: 'Cierre y Auditoría Documental Completa', ok: isFinished, detail: isFinished ? 'Finalizado' : 'Pendiente (Pendiente Adopción)' }
       ]
     } else if (isCat) {
       return [
@@ -154,14 +154,14 @@ export default function ExpedientsPage() {
         { label: 'Registro Fotográfico del Animal', ok: hasPhoto, detail: hasPhoto ? 'Foto cargada' : 'Sin foto' },
         { label: 'Custodia e Ingreso a Canil Felino', ok: animal.was_captured, detail: animal.was_captured ? 'En custodia' : 'Escapó' },
         { label: 'Aseos y Mantención de Canil', ok: cleaningsCount > 0, detail: `${cleaningsCount} registros` },
-        { label: 'Acta de Entrega / Destino Final', ok: hasAct || isFinished, detail: isFinished ? 'Proceso Finalizado' : 'Pendiente' }
+        { label: 'Acta de Entrega / Destino Final', ok: hasAct || isFinished, detail: isFinished ? 'Proceso Finalizado' : (hasAct ? `Acta ${act.act_number}` : 'Pendiente') }
       ]
     } else {
       return [
         { label: 'Ficha de Intervención Fauna Minoritaria', ok: true, detail: `Evento ${animal.event?.event_code || ''}` },
         { label: 'Registro Fotográfico', ok: hasPhoto, detail: hasPhoto ? 'Foto cargada' : 'Sin foto' },
         { label: 'Registro de Captura o Relocalización', ok: animal.was_captured, detail: animal.was_captured ? 'Capturado' : 'Liberado/Escapó' },
-        { label: 'Cierre de Expediente de Fauna', ok: isFinished, detail: animal.animal_status }
+        { label: 'Cierre de Expediente de Fauna', ok: isFinished, detail: isFinished ? 'Finalizado' : 'Pendiente' }
       ]
     }
   }
