@@ -23,10 +23,12 @@ import {
   Filter,
   User,
   MapPin,
-  Clock
+  Clock,
+  UserCheck
 } from 'lucide-react'
 
 import { formatFreeText } from '@/lib/utils/formatters'
+import { createExternalHandoverAction } from './actions'
 
 export default function EventsPage() {
   const [activations, setActivations] = useState<EventActivation[]>([])
@@ -71,6 +73,28 @@ export default function EventsPage() {
   const [wasCaptured, setWasCaptured] = useState(true)
   const [animalFile, setAnimalFile] = useState<File | null>(null)
   const [animalPreview, setAnimalPreview] = useState<string | null>(null)
+
+  // External Handover Form State
+  const [showHandoverModal, setShowHandoverModal] = useState(false)
+  const [handoverDate, setHandoverDate] = useState('')
+  const [handoverTime, setHandoverTime] = useState('')
+  const [handoverClientId, setHandoverClientId] = useState('')
+  const [handoverOperatorId, setHandoverOperatorId] = useState('')
+  const [handoverEntity, setHandoverEntity] = useState('')
+  const [handoverPersonName, setHandoverPersonName] = useState('')
+  const [handoverIdFile, setHandoverIdFile] = useState<File | null>(null)
+  const [handoverIdPreview, setHandoverIdPreview] = useState<string | null>(null)
+  const [handoverSpecies, setHandoverSpecies] = useState<'Perro' | 'Gato' | 'Murciélago' | 'Conejo' | 'Paloma'>('Perro')
+  const [handoverSex, setHandoverSex] = useState<'Macho' | 'Hembra' | 'Indeterminado'>('Macho')
+  const [handoverSize, setHandoverSize] = useState<'Pequeño' | 'Mediano' | 'Grande'>('Mediano')
+  const [handoverAge, setHandoverAge] = useState<'Cachorro/juvenil' | 'Adulto' | 'Senior' | 'Indeterminada'>('Adulto')
+  const [handoverColorFeatures, setHandoverColorFeatures] = useState('')
+  const [handoverAnimalFile, setHandoverAnimalFile] = useState<File | null>(null)
+  const [handoverAnimalPreview, setHandoverAnimalPreview] = useState<string | null>(null)
+  const [handoverLocation, setHandoverLocation] = useState('')
+  const [handoverZone, setHandoverZone] = useState('')
+  const [handoverObs, setHandoverObs] = useState('')
+  const [handoverSaving, setHandoverSaving] = useState(false)
 
   // Closure Form State
   const [closureType, setClosureType] = useState<ClosureType | ''>('')
@@ -153,6 +177,126 @@ export default function EventsPage() {
     setSituationDescription('')
     setOperatorId(profile ? profile.id : '')
     setShowModal(true)
+  }
+
+  const openHandoverModal = () => {
+    const today = new Date()
+    setHandoverDate(today.toISOString().slice(0, 10))
+    setHandoverTime(today.toTimeString().slice(0, 5))
+
+    const dgacClient = clients.find(c => c.name.toUpperCase().includes('DGAC'))
+    setHandoverClientId(dgacClient ? dgacClient.id : (clients[0]?.id || ''))
+    setHandoverOperatorId(profile ? profile.id : '')
+    setHandoverEntity('')
+    setHandoverPersonName('')
+    setHandoverIdFile(null)
+    setHandoverIdPreview(null)
+    setHandoverSpecies('Perro')
+    setHandoverSex('Macho')
+    setHandoverSize('Mediano')
+    setHandoverAge('Adulto')
+    setHandoverColorFeatures('')
+    setHandoverAnimalFile(null)
+    setHandoverAnimalPreview(null)
+    setHandoverLocation('')
+    setHandoverZone(zones[0]?.name || 'Cuartel / Canil')
+    setHandoverObs('')
+    setShowHandoverModal(true)
+  }
+
+  const handleHandoverIdFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0]
+      setHandoverIdFile(file)
+      setHandoverIdPreview(URL.createObjectURL(file))
+    }
+  }
+
+  const handleHandoverAnimalFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0]
+      setHandoverAnimalFile(file)
+      setHandoverAnimalPreview(URL.createObjectURL(file))
+    }
+  }
+
+  const handleCreateExternalHandover = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!profile) return
+
+    if (!handoverClientId) {
+      alert('Debe seleccionar el cliente solicitante.')
+      return
+    }
+    if (!handoverEntity.trim()) {
+      alert('Debe ingresar la entidad que entrega el animal (ej: SSEI, SAG).')
+      return
+    }
+    if (!handoverPersonName.trim()) {
+      alert('Debe ingresar el nombre de la persona que entrega.')
+      return
+    }
+    if (!handoverIdFile) {
+      alert('Debe subir la foto de la credencial / TICA de la persona que entrega.')
+      return
+    }
+    if (!handoverColorFeatures.trim()) {
+      alert('Debe ingresar el color y características del animal.')
+      return
+    }
+    if (!handoverAnimalFile) {
+      alert('Debe subir una foto del animal entregado.')
+      return
+    }
+    if (!handoverLocation.trim()) {
+      alert('Debe ingresar el lugar de captura original o referencia.')
+      return
+    }
+
+    setHandoverSaving(true)
+
+    try {
+      // 1. Upload TICA photo
+      const idPhotoUrl = await uploadImageFile(handoverIdFile, 'handover_id_photos')
+      // 2. Upload Animal photo
+      const animalPhotoUrl = await uploadImageFile(handoverAnimalFile, 'animal_photos')
+
+      const selectedOpId = (isAdminOrSuper && handoverOperatorId) ? handoverOperatorId : profile.id
+      const formattedEntity = formatFreeText(handoverEntity)
+      const formattedPerson = formatFreeText(handoverPersonName)
+      const formattedColor = formatFreeText(handoverColorFeatures)
+      const formattedLoc = formatFreeText(handoverLocation)
+      const formattedObs = formatFreeText(handoverObs)
+
+      const result = await createExternalHandoverAction({
+        event_date: handoverDate,
+        notice_time: handoverTime,
+        client_id: handoverClientId,
+        operator_id: selectedOpId,
+        handover_entity: formattedEntity,
+        handover_person_name: formattedPerson,
+        handover_id_photo_url: idPhotoUrl,
+        specific_location: formattedLoc,
+        airport_zone: handoverZone || 'Cuartel / Canil',
+        observations: formattedObs,
+        species: handoverSpecies,
+        sex: handoverSex,
+        size: handoverSize,
+        color_features: formattedColor,
+        apparent_age: handoverAge,
+        animal_photo_url: animalPhotoUrl,
+      })
+
+      if (!result.success) throw new Error(result.error)
+
+      setShowHandoverModal(false)
+      fetchInitialData()
+      alert('Recepción externa registrada con éxito. El animal ya se encuentra ingresado en el canil.')
+    } catch (err: any) {
+      alert('Error registrando recepción externa: ' + err.message)
+    } finally {
+      setHandoverSaving(false)
+    }
   }
 
   // Handle Preset Change
@@ -513,13 +657,22 @@ export default function EventsPage() {
             Registro de activaciones operacionales en curso, capturas e historial de procedimientos cerrados.
           </p>
         </div>
-        <button
-          onClick={openNewActivationModal}
-          className="flex items-center justify-center gap-2 px-5 py-3 bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs rounded-xl shadow-md transition"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Nueva Activación / Aviso</span>
-        </button>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          <button
+            onClick={openHandoverModal}
+            className="flex items-center justify-center gap-2 px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-md transition"
+          >
+            <UserCheck className="w-4 h-4" />
+            <span>Recepción Externa</span>
+          </button>
+          <button
+            onClick={openNewActivationModal}
+            className="flex items-center justify-center gap-2 px-5 py-3 bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs rounded-xl shadow-md transition"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Nueva Activación / Aviso</span>
+          </button>
+        </div>
       </div>
 
       {/* ------------------------------------------------------------- */}
@@ -762,7 +915,14 @@ export default function EventsPage() {
                       className="hover:bg-orange-50/50 cursor-pointer transition"
                     >
                       <td className="p-3 font-semibold text-gray-900">
-                        <div className="text-orange-600 font-bold">{ev.event_code}</div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-orange-600 font-bold">{ev.event_code}</span>
+                          {ev.event_type === 'Recepción Externa' && (
+                            <span className="px-2 py-0.5 bg-purple-100 text-purple-800 font-bold text-[9px] rounded-full border border-purple-200">
+                              Recepción Externa
+                            </span>
+                          )}
+                        </div>
                         <div className="text-[10px] text-gray-500 flex items-center gap-1 mt-0.5">
                           <Clock className="w-3 h-3 text-gray-400" />
                           <span>{closedDate}</span>
@@ -772,7 +932,13 @@ export default function EventsPage() {
                       <td className="p-3">
                         <div className="font-bold text-gray-800">{ev.client?.name}</div>
                         <div className="text-[11px] text-gray-500">{ev.specific_location} ({ev.airport_zone})</div>
-                        {ev.requested_by && <div className="text-[10px] text-orange-700 font-semibold mt-0.5">Sol: {ev.requested_by}</div>}
+                        {ev.handover_entity ? (
+                          <div className="text-[10px] text-purple-700 font-semibold mt-0.5">
+                            Entregado por: {ev.handover_entity} ({ev.handover_person_name})
+                          </div>
+                        ) : ev.requested_by ? (
+                          <div className="text-[10px] text-orange-700 font-semibold mt-0.5">Sol: {ev.requested_by}</div>
+                        ) : null}
                       </td>
 
                       <td className="p-3">
@@ -1270,6 +1436,40 @@ export default function EventsPage() {
 
             {/* Grid of details */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              {/* Handover Specific Card */}
+              {(showDetailModal.handover_person_name || showDetailModal.event_type === 'Recepción Externa') && (
+                <div className="md:col-span-2 bg-purple-50/60 p-4 rounded-xl space-y-3 border border-purple-200">
+                  <h4 className="font-bold text-purple-900 uppercase tracking-wider text-[10px] flex items-center gap-1.5">
+                    <UserCheck className="w-4 h-4 text-purple-600" />
+                    <span>Antecedentes de Recepción Externa</span>
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-gray-800 text-xs">
+                    <div className="space-y-1">
+                      <p><strong>Entidad de Origen:</strong> {showDetailModal.handover_entity || 'No registrada'}</p>
+                      <p><strong>Persona que Entrega:</strong> {showDetailModal.handover_person_name || 'No registrada'}</p>
+                      <p><strong>Operador Receptor:</strong> {showDetailModal.operator?.full_name || 'No registrado'}</p>
+                    </div>
+                    {showDetailModal.handover_id_photo_url && (
+                      <div>
+                        <p className="font-bold text-gray-700 mb-1 text-[11px]">Foto Credencial / TICA del Entregante:</p>
+                        <a
+                          href={showDetailModal.handover_id_photo_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-block relative w-36 h-24 rounded-xl overflow-hidden border border-purple-300 shadow-sm hover:opacity-90 transition"
+                        >
+                          <img
+                            src={showDetailModal.handover_id_photo_url}
+                            alt="Foto Credencial TICA"
+                            className="w-full h-full object-cover"
+                          />
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Card 1: Antecedentes Iniciales */}
               <div className="bg-gray-50 p-4 rounded-xl space-y-2 border border-gray-100">
                 <h4 className="font-bold text-gray-800 uppercase tracking-wider text-[10px] flex items-center gap-1">
@@ -1278,7 +1478,7 @@ export default function EventsPage() {
                 </h4>
                 <div className="space-y-1 text-gray-700">
                   <p><strong>Cliente:</strong> {showDetailModal.client?.name}</p>
-                  <p><strong>Persona / Entidad que Activa:</strong> {showDetailModal.requested_by || 'No especificado'}</p>
+                  <p><strong>Persona / Entidad que Activa:</strong> {showDetailModal.requested_by || showDetailModal.handover_entity || 'No especificado'}</p>
                   <p><strong>Operador a Cargo:</strong> {showDetailModal.operator?.full_name || 'No registrado'}</p>
                   <p><strong>Zona:</strong> {showDetailModal.airport_zone}</p>
                   <p><strong>Lugar Específico:</strong> {showDetailModal.specific_location}</p>
@@ -1392,6 +1592,318 @@ export default function EventsPage() {
                 Cerrar Ventana
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* ------------------------------------------------------------- */}
+      {/* MODAL 5: RECEPCIÓN EXTERNA DE ANIMAL                         */}
+      {/* ------------------------------------------------------------- */}
+      {showHandoverModal && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white w-full max-w-2xl rounded-2xl p-6 space-y-5 shadow-2xl my-8">
+            <div className="flex items-start justify-between border-b border-gray-100 pb-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <UserCheck className="w-6 h-6 text-purple-600" />
+                  <h3 className="text-lg font-bold text-gray-900">Recepción Externa de Animal</h3>
+                </div>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Registro de animales capturados y entregados por otras entidades (SSEI, SAG, etc.).
+                </p>
+              </div>
+              <button onClick={() => setShowHandoverModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateExternalHandover} className="space-y-4 text-xs">
+              {/* Banner Informativo */}
+              <div className="p-3 bg-purple-50 rounded-xl border border-purple-200 text-purple-900 text-[11px] leading-relaxed">
+                ℹ️ <strong>Información:</strong> Este formulario registrará automáticamente la intervención como <strong>procedimiento cerrado</strong> y pondrá al animal bajo custodia inmediata en el <strong>canil</strong>.
+              </div>
+
+              {/* SECCIÓN 1: FECHA Y HORA DE RECEPCIÓN */}
+              <div className="bg-gray-50 p-3.5 rounded-xl border border-gray-200 space-y-2">
+                <span className="block font-bold text-gray-800 uppercase tracking-wider text-[10px]">1. Fecha y Hora de Recepción</span>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-gray-700 mb-1">Fecha de Recepción *</label>
+                    <input
+                      type="date"
+                      required
+                      value={handoverDate}
+                      onChange={(e) => setHandoverDate(e.target.value)}
+                      className="w-full p-2.5 bg-white border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-gray-700 mb-1">Hora de Recepción *</label>
+                    <input
+                      type="time"
+                      required
+                      value={handoverTime}
+                      onChange={(e) => setHandoverTime(e.target.value)}
+                      className="w-full p-2.5 bg-white border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* SECCIÓN 2: CLIENTE Y OPERADOR */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">Cliente Solicitante *</label>
+                  <select
+                    value={handoverClientId}
+                    onChange={(e) => setHandoverClientId(e.target.value)}
+                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-purple-500"
+                  >
+                    <option value="">-- Seleccionar Cliente --</option>
+                    {clients.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {isAdminOrSuper && (
+                  <div>
+                    <label className="block font-bold text-gray-700 mb-1">Operador Receptor *</label>
+                    <select
+                      value={handoverOperatorId}
+                      onChange={(e) => setHandoverOperatorId(e.target.value)}
+                      className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-bold text-gray-800 focus:ring-2 focus:ring-purple-500"
+                    >
+                      <option value="">-- Seleccionar Operador --</option>
+                      {operators.map((op: any) => (
+                        <option key={op.id} value={op.id}>
+                          {op.full_name} ({op.role?.toUpperCase() || 'OPERADOR'})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              {/* SECCIÓN 3: ENTIDAD Y PERSONA QUE ENTREGA */}
+              <div className="bg-purple-50/50 p-3.5 rounded-xl border border-purple-100 space-y-3">
+                <span className="block font-bold text-purple-900 uppercase tracking-wider text-[10px]">2. Identificación del Entregante</span>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-gray-700 mb-1">Entidad / Institución que Entrega *</label>
+                    <input
+                      type="text"
+                      required
+                      value={handoverEntity}
+                      onChange={(e) => setHandoverEntity(e.target.value)}
+                      onBlur={() => setHandoverEntity(formatFreeText(handoverEntity))}
+                      placeholder="Ej: SSEI, SAG, Seguridad Aeroportuaria"
+                      className="w-full p-2.5 bg-white border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-gray-700 mb-1">Nombre de la Persona que Entrega *</label>
+                    <input
+                      type="text"
+                      required
+                      value={handoverPersonName}
+                      onChange={(e) => setHandoverPersonName(e.target.value)}
+                      onBlur={() => setHandoverPersonName(formatFreeText(handoverPersonName))}
+                      placeholder="Ej: Felipe Antonio Soto González"
+                      className="w-full p-2.5 bg-white border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Foto Credencial / TICA */}
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1 flex items-center gap-1">
+                    <Camera className="w-3.5 h-3.5 text-purple-600" />
+                    <span>Foto Credencial / TICA del Entregante *</span>
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleHandoverIdFileChange}
+                    className="w-full text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-purple-100 file:text-purple-800 hover:file:bg-purple-200 cursor-pointer"
+                  />
+                  {handoverIdPreview && (
+                    <div className="relative mt-2 w-48 h-32 rounded-xl overflow-hidden border border-purple-300 shadow-sm">
+                      <img src={handoverIdPreview} alt="Foto Credencial" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setHandoverIdFile(null)
+                          setHandoverIdPreview(null)
+                        }}
+                        className="absolute top-1.5 right-1.5 bg-red-600 text-white text-xs w-6 h-6 rounded-full flex items-center justify-center font-bold shadow"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* SECCIÓN 4: DATOS DEL ANIMAL */}
+              <div className="bg-orange-50/40 p-3.5 rounded-xl border border-orange-100 space-y-3">
+                <span className="block font-bold text-orange-900 uppercase tracking-wider text-[10px] flex items-center gap-1">
+                  <Dog className="w-3.5 h-3.5 text-orange-600" />
+                  <span>3. Datos del Animal Entregado</span>
+                </span>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <div>
+                    <label className="block font-bold text-gray-700 mb-1">Especie *</label>
+                    <select
+                      value={handoverSpecies}
+                      onChange={(e: any) => setHandoverSpecies(e.target.value)}
+                      className="w-full p-2.5 bg-white border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-orange-500"
+                    >
+                      <option value="Perro">Perro</option>
+                      <option value="Gato">Gato</option>
+                      <option value="Murciélago">Murciélago</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-bold text-gray-700 mb-1">Sexo *</label>
+                    <select
+                      value={handoverSex}
+                      onChange={(e: any) => setHandoverSex(e.target.value)}
+                      className="w-full p-2.5 bg-white border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-orange-500"
+                    >
+                      <option value="Macho">Macho</option>
+                      <option value="Hembra">Hembra</option>
+                      <option value="Indeterminado">Indeterminado</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-bold text-gray-700 mb-1">Tamaño *</label>
+                    <select
+                      value={handoverSize}
+                      onChange={(e: any) => setHandoverSize(e.target.value)}
+                      className="w-full p-2.5 bg-white border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-orange-500"
+                    >
+                      <option value="Pequeño">Pequeño</option>
+                      <option value="Mediano">Mediano</option>
+                      <option value="Grande">Grande</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-bold text-gray-700 mb-1">Edad Aparente *</label>
+                    <select
+                      value={handoverAge}
+                      onChange={(e: any) => setHandoverAge(e.target.value)}
+                      className="w-full p-2.5 bg-white border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-orange-500"
+                    >
+                      <option value="Cachorro/juvenil">Cachorro/juvenil</option>
+                      <option value="Adulto">Adulto</option>
+                      <option value="Senior">Senior</option>
+                      <option value="Indeterminada">Indeterminada</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">Color / Características *</label>
+                  <input
+                    type="text"
+                    required
+                    value={handoverColorFeatures}
+                    onChange={(e) => setHandoverColorFeatures(e.target.value)}
+                    onBlur={() => setHandoverColorFeatures(formatFreeText(handoverColorFeatures))}
+                    placeholder="Ej: Negro pelaje largo, mancha blanca en el pecho"
+                    className="w-full p-2.5 bg-white border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+
+                {/* Foto del Animal */}
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1 flex items-center gap-1">
+                    <Camera className="w-3.5 h-3.5 text-orange-600" />
+                    <span>Foto del Animal *</span>
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleHandoverAnimalFileChange}
+                    className="w-full text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-orange-100 file:text-orange-800 hover:file:bg-orange-200 cursor-pointer"
+                  />
+                  {handoverAnimalPreview && (
+                    <div className="relative mt-2 w-48 h-32 rounded-xl overflow-hidden border border-orange-300 shadow-sm">
+                      <img src={handoverAnimalPreview} alt="Foto del Animal" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setHandoverAnimalFile(null)
+                          setHandoverAnimalPreview(null)
+                        }}
+                        className="absolute top-1.5 right-1.5 bg-red-600 text-white text-xs w-6 h-6 rounded-full flex items-center justify-center font-bold shadow"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* SECCIÓN 5: UBICACIÓN Y OBSERVACIONES */}
+              <div className="space-y-3">
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">Lugar de Captura Original / Referencia *</label>
+                  <input
+                    type="text"
+                    required
+                    value={handoverLocation}
+                    onChange={(e) => setHandoverLocation(e.target.value)}
+                    onBlur={() => setHandoverLocation(formatFreeText(handoverLocation))}
+                    placeholder="Ej: Cercanía de Cuartel Principal SSEI"
+                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">Zona del Aeródromo *</label>
+                  <select
+                    value={handoverZone}
+                    onChange={(e) => setHandoverZone(e.target.value)}
+                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-purple-500"
+                  >
+                    {zones.map((z) => (
+                      <option key={z.id} value={z.name}>{z.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">Observaciones Adicionales</label>
+                  <textarea
+                    rows={2}
+                    value={handoverObs}
+                    onChange={(e) => setHandoverObs(e.target.value)}
+                    placeholder="Ej: Se le entregó agua y comida al ingresar al canil..."
+                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setShowHandoverModal(false)}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 font-bold rounded-xl hover:bg-gray-200"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={handoverSaving}
+                  className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl shadow transition"
+                >
+                  {handoverSaving ? 'Guardando Recepción...' : 'Registrar Recepción Externa'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

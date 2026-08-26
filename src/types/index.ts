@@ -83,6 +83,9 @@ export interface EventActivation {
   client_id: string;
   operator_id: string;
   requested_by?: string;
+  handover_person_name?: string;
+  handover_entity?: string;
+  handover_id_photo_url?: string;
   event_type: string;
   event_date: string;
   notice_time?: string;
