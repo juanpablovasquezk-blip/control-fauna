@@ -71,13 +71,28 @@ img, svg, picture, video {
 
 /* Media Print Rules */
 @media print {
-  body {
-    background: white !important;
-    color: black !important;
+  body, html {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
   }
+
+  @page {
+    size: letter portrait;
+    margin: 10mm;
+  }
+
+  header, footer, nav, aside, .print\:hidden {
+    display: none !important;
+  }
+
   .no-print {
     display: none !important;
   }
+
   .print-only {
     display: block !important;
   }

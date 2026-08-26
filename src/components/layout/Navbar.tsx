@@ -9,7 +9,7 @@ export function Navbar() {
   if (!profile) return null
 
   return (
-    <header className="h-14 bg-white border-b border-gray-200 px-4 flex items-center justify-between sticky top-0 z-40">
+    <header className="h-14 bg-white border-b border-gray-200 px-4 flex items-center justify-between sticky top-0 z-40 print:hidden">
       <div className="flex items-center gap-3 md:hidden">
         <img src="/logos/LOGO MINERQUIM.jpg" alt="Minerquim" className="h-7 object-contain" />
         <span className="font-bold text-xs text-orange-600">CONTROL FAUNA</span>

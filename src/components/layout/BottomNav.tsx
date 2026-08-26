@@ -25,7 +25,7 @@ export function BottomNav() {
   const filtered = items.filter(item => item.roles.includes(role)).slice(0, 5)
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-[#1E2024] border-t border-gray-800 z-50 flex items-center justify-around py-2 px-1">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-[#1E2024] border-t border-gray-800 z-50 flex items-center justify-around py-2 px-1 print:hidden">
       {filtered.map((item) => {
         const Icon = item.icon
         const isActive = pathname === item.href || pathname.startsWith(item.href + '/')

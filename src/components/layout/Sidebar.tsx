@@ -44,7 +44,7 @@ export function Sidebar() {
   const filteredNav = navItems.filter(item => item.roles.includes(role))
 
   return (
-    <aside className="w-64 bg-[#1E2024] text-white flex flex-col min-h-screen border-r border-gray-800 hidden md:flex">
+    <aside className="w-64 bg-[#1E2024] text-white flex flex-col min-h-screen border-r border-gray-800 hidden md:flex print:hidden">
       {/* Brand Header */}
       <div className="p-4 border-b border-gray-800 flex items-center gap-3">
         <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center p-1">

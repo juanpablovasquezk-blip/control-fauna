@@ -172,7 +172,7 @@ export default function DeliveryActsPage() {
   const [selectedPreviewAct, setSelectedPreviewAct] = useState<DeliveryAct | null>(null)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 print:hidden">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
         <div>
@@ -434,8 +434,8 @@ export default function DeliveryActsPage() {
 
       {/* Modal 3: Vista Previa del Formato Oficial de Acta */}
       {showFormatPreview && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
-          <div className="bg-white w-full max-w-3xl rounded-2xl p-4 sm:p-6 shadow-2xl max-h-[92vh] flex flex-col my-auto border border-gray-100">
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto print:static print:inset-auto print:p-0 print:m-0 print:bg-white print:block print:w-full print:h-auto">
+          <div className="bg-white w-full max-w-3xl rounded-2xl p-4 sm:p-6 shadow-2xl max-h-[92vh] flex flex-col my-auto border border-gray-100 print:shadow-none print:border-none print:p-0 print:m-0 print:max-w-none print:w-full print:max-h-none print:static">
             {/* Modal Header - Fixed */}
             <div className="flex items-start justify-between border-b border-gray-200 pb-3 flex-shrink-0 print:hidden">
               <div>
@@ -462,7 +462,7 @@ export default function DeliveryActsPage() {
             </div>
 
             {/* Printable Official Document Format - Scrollable */}
-            <div className="overflow-y-auto flex-1 my-3 pr-1 space-y-5 border border-gray-300 rounded-xl p-5 bg-white text-xs text-gray-900 shadow-inner font-sans">
+            <div className="overflow-y-auto flex-1 my-3 pr-1 space-y-5 border border-gray-300 rounded-xl p-5 bg-white text-xs text-gray-900 shadow-inner font-sans print:border-none print:shadow-none print:p-0 print:m-0 print:overflow-visible print:my-0">
               {/* Document Header */}
               <div className="flex items-center justify-between border-b-2 border-gray-900 pb-4 gap-4">
                 <div className="flex items-center gap-3 flex-1 min-w-0">

@@ -37,11 +37,11 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
   if (!profile) return null
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-gray-50 overflow-hidden print:bg-white print:h-auto print:overflow-visible print:p-0 print:m-0">
       <Sidebar />
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden print:overflow-visible print:h-auto print:p-0 print:m-0">
         <Navbar />
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-20 md:pb-6">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-20 md:pb-6 print:p-0 print:m-0 print:overflow-visible print:h-auto">
           {children}
         </main>
         <BottomNav />
