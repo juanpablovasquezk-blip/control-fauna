@@ -20,7 +20,6 @@ export async function createKennelCleaningAction(data: {
   }
 
   if (cleaning_datetime) {
-    insertPayload.cleaning_datetime = cleaning_datetime
     insertPayload.created_at = cleaning_datetime
   }
 
@@ -31,6 +30,7 @@ export async function createKennelCleaningAction(data: {
     .single()
 
   if (cleanErr) {
+    console.error('Error inserting into kennel_cleanings:', cleanErr)
     return { success: false, error: cleanErr.message }
   }
 

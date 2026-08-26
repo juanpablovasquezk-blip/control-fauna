@@ -163,7 +163,10 @@ export default function KennelPage() {
         cleaning_datetime: cleaningTimestamp,
       })
 
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {
+        alert('Error al guardar el registro de aseo: ' + (res.error || 'Error en la base de datos.'))
+        return
+      }
 
       // Trigger WhatsApp notification (asynchronous & silent)
       sendKennelCleaningWhatsAppAlert({
@@ -271,7 +274,7 @@ export default function KennelPage() {
                   <p className="text-[10px] text-gray-400">Realizado por: {c.operator?.full_name || 'Operador / Admin'}</p>
                 </div>
                 <span className="text-[11px] text-gray-500 font-medium">
-                  {new Date(c.cleaning_datetime || c.created_at).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' })}
+                  {new Date(c.created_at || c.cleaning_datetime || '').toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' })}
                 </span>
               </div>
             ))}
