@@ -24,7 +24,8 @@ import {
   User,
   MapPin,
   Clock,
-  UserCheck
+  UserCheck,
+  Trash2
 } from 'lucide-react'
 
 import { formatFreeText } from '@/lib/utils/formatters'
@@ -38,6 +39,33 @@ export interface ClosureAnimalForm {
   color_features: string
   file: File | null
   preview: string | null
+}
+
+export function getReportedInfo(ev: EventActivation) {
+  if (ev.reported_animal_count && ev.reported_animal_count > 0) {
+    return {
+      count: ev.reported_animal_count,
+      species: ev.reported_species || 'Perro',
+    }
+  }
+
+  const desc = ev.situation_description || ''
+  const match = desc.match(/\[Aviso:\s*(\d+)\s*([^\]\()]+)/i) ||
+                desc.match(/Divisado\(s\)\s*(\d+)\s*([^\s\.]+)/i) ||
+                desc.match(/(\d+)\s*(CANES|PERROS|PERRO|GATOS|GATO)/i)
+
+  if (match) {
+    const parsedCount = parseInt(match[1]) || 1
+    let parsedSpecies = match[2].trim()
+    if (/can/i.test(parsedSpecies) || /perro/i.test(parsedSpecies)) parsedSpecies = 'Perro'
+    else if (/gato/i.test(parsedSpecies)) parsedSpecies = 'Gato'
+    return { count: parsedCount, species: parsedSpecies }
+  }
+
+  return {
+    count: 1,
+    species: ev.reported_species || 'Perro',
+  }
 }
 
 export default function EventsPage() {
@@ -532,6 +560,29 @@ export default function EventsPage() {
     }
   }
 
+  const handleDeleteEvent = async (eventId: string, eventCode: string) => {
+    if (!isAdminOrSuper) {
+      alert('No tiene permisos para eliminar registros.')
+      return
+    }
+
+    if (!confirm(`¿Está seguro de que desea eliminar la activación / procedimiento ${eventCode}? Esta acción no se puede deshacer y borrará los registros asociados.`)) {
+      return
+    }
+
+    try {
+      const { error } = await supabase.from('events').delete().eq('id', eventId)
+      if (error) throw error
+
+      alert(`Procedimiento ${eventCode} eliminado con éxito.`)
+      if (showDetailModal?.id === eventId) setShowDetailModal(null)
+      if (showCloseModal?.id === eventId) setShowCloseModal(null)
+      fetchInitialData()
+    } catch (err: any) {
+      alert('Error al eliminar la activación: ' + (err?.message || 'Error desconocido'))
+    }
+  }
+
   const createDefaultClosureAnimal = (spec: string): ClosureAnimalForm => ({
     species: spec === 'Gato' ? 'Gato' : 'Perro',
     sex: 'Macho',
@@ -544,6 +595,10 @@ export default function EventsPage() {
 
   const openCloseModal = (event: EventActivation) => {
     const today = new Date()
+    const reportedInfo = getReportedInfo(event)
+    const count = reportedInfo.count
+    const spec = reportedInfo.species
+
     setShowCloseModal(event)
     setClosureType('Captura total')
     setClosureObs('')
@@ -558,8 +613,6 @@ export default function EventsPage() {
     setCloseDate(event.event_date || today.toISOString().slice(0, 10))
     setCloseTime(today.toTimeString().slice(0, 5))
 
-    const count = event.reported_animal_count || 1
-    const spec = event.reported_species || 'Perro'
     setPartialCapturedCount(Math.max(1, count - 1))
 
     const initialArr: ClosureAnimalForm[] = []
@@ -570,8 +623,9 @@ export default function EventsPage() {
   }
 
   const updateClosureAnimalsList = (type: string, partialNum: number, event: EventActivation) => {
-    const reportedTotal = event.reported_animal_count || 1
-    const spec = event.reported_species || 'Perro'
+    const reportedInfo = getReportedInfo(event)
+    const reportedTotal = reportedInfo.count
+    const spec = reportedInfo.species
     let targetCount = 0
 
     if (type === 'Captura total') {
@@ -939,10 +993,15 @@ export default function EventsPage() {
                     </div>
 
                     <div className="flex items-center gap-2 self-start sm:self-auto">
-                      <span className="px-3 py-1.5 bg-orange-50 text-orange-800 border border-orange-200 font-bold text-xs rounded-xl flex items-center gap-1.5">
-                        <Dog className="w-3.5 h-3.5 text-orange-600" />
-                        <span>Aviso: {ev.reported_animal_count || 1} {ev.reported_species || 'Perro'}(s)</span>
-                      </span>
+                      {(() => {
+                        const reportedInfo = getReportedInfo(ev)
+                        return (
+                          <span className="px-3 py-1.5 bg-orange-50 text-orange-800 border border-orange-200 font-bold text-xs rounded-xl flex items-center gap-1.5">
+                            <Dog className="w-3.5 h-3.5 text-orange-600" />
+                            <span>Aviso: {reportedInfo.count} {reportedInfo.species}(s)</span>
+                          </span>
+                        )
+                      })()}
 
                       <button
                         onClick={() => openCloseModal(ev)}
@@ -951,6 +1010,16 @@ export default function EventsPage() {
                         <Lock className="w-3.5 h-3.5 text-orange-400" />
                         <span>Cerrar Procedimiento</span>
                       </button>
+
+                      {isAdminOrSuper && (
+                        <button
+                          onClick={() => handleDeleteEvent(ev.id, ev.event_code)}
+                          title="Eliminar esta activación"
+                          className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-xl transition border border-red-200"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -1182,16 +1251,31 @@ export default function EventsPage() {
                       </td>
 
                       <td className="p-3 text-right">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setShowDetailModal(ev)
-                          }}
-                          className="px-3 py-1.5 bg-white border border-gray-300 hover:border-orange-500 hover:text-orange-600 text-gray-700 text-[11px] font-bold rounded-lg shadow-sm transition inline-flex items-center gap-1"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                          <span>Ver Antecedentes</span>
-                        </button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setShowDetailModal(ev)
+                            }}
+                            className="px-3 py-1.5 bg-white border border-gray-300 hover:border-orange-500 hover:text-orange-600 text-gray-700 text-[11px] font-bold rounded-lg shadow-sm transition inline-flex items-center gap-1"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>Ver Antecedentes</span>
+                          </button>
+
+                          {isAdminOrSuper && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleDeleteEvent(ev.id, ev.event_code)
+                              }}
+                              title="Eliminar este procedimiento"
+                              className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition border border-red-100"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   )
@@ -2029,7 +2113,17 @@ export default function EventsPage() {
             )}
 
             {/* Footer */}
-            <div className="flex justify-end pt-3 border-t border-gray-100">
+            <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+              {isAdminOrSuper ? (
+                <button
+                  type="button"
+                  onClick={() => handleDeleteEvent(showDetailModal.id, showDetailModal.event_code)}
+                  className="px-3.5 py-2 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-bold text-xs rounded-xl transition flex items-center gap-1.5"
+                >
+                  <Trash2 className="w-4 h-4 text-red-600" />
+                  <span>Eliminar Registro</span>
+                </button>
+              ) : <div />}
               <button
                 onClick={() => setShowDetailModal(null)}
                 className="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white font-bold text-xs rounded-xl shadow transition"

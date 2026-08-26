@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth/AuthProvider'
 import { DeliveryAct, Client, AnimalRecord } from '@/types'
-import { FileCheck, Printer, Camera, Plus, FileText, CheckCircle, Eye, X } from 'lucide-react'
+import { FileCheck, Printer, Camera, Plus, FileText, CheckCircle, Eye, X, Trash2 } from 'lucide-react'
 import { createDeliveryActAction, getDeliveryActsDataAction, updateSignedScanAction } from './actions'
 import { formatFreeText } from '@/lib/utils/formatters'
 
@@ -55,10 +55,22 @@ export default function DeliveryActsPage() {
       setAnimals(res.animals as AnimalRecord[])
       setOperators(res.operators)
       setActs(res.acts as DeliveryAct[])
-    } else {
-      console.error('Error fetching acts:', res.error)
     }
     setLoading(false)
+  }
+
+  const handleDeleteAct = async (id: string, actNumber: string) => {
+    if (!isAdminOrSuper) return
+    if (!confirm(`¿Está seguro de que desea eliminar el Acta N° ${actNumber}? Esta acción no se puede deshacer.`)) return
+
+    try {
+      const { error } = await supabase.from('delivery_acts').delete().eq('id', id)
+      if (error) throw error
+      alert(`Acta N° ${actNumber} eliminada con éxito.`)
+      fetchActsData()
+    } catch (err: any) {
+      alert('Error al eliminar el acta: ' + (err?.message || 'Error desconocido'))
+    }
   }
 
   const openNewActModal = () => {
@@ -265,6 +277,16 @@ export default function DeliveryActsPage() {
                     <Camera className="w-3.5 h-3.5" />
                     <span>Escanear Firmada</span>
                   </button>
+
+                  {isAdminOrSuper && (
+                    <button
+                      onClick={() => handleDeleteAct(act.id, act.act_number)}
+                      title="Eliminar esta acta"
+                      className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition border border-red-100"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
