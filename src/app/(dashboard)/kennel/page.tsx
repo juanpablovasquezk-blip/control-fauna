@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth/AuthProvider'
 import { KennelRecord, KennelCleaning } from '@/types'
 import { Dog, Sparkles, AlertTriangle, Plus, Clock, CheckCircle2 } from 'lucide-react'
+import { createKennelCleaningAction } from './actions'
 
 export default function KennelPage() {
   const [activeKennels, setActiveKennels] = useState<KennelRecord[]>([])
@@ -95,27 +96,15 @@ export default function KennelPage() {
     setSaving(true)
 
     try {
-      // 1. Insert cleaning
-      const { data: cleanRes, error: cleanErr } = await supabase
-        .from('kennel_cleanings')
-        .insert({
-          operator_id: profile.id,
-          cleaning_type: cleaningType,
-          observations,
-        })
-        .select()
-        .single()
+      const activeAnimalIds = activeKennels.map(k => k.animal_id).filter(Boolean)
+      const res = await createKennelCleaningAction({
+        operator_id: profile.id,
+        cleaning_type: cleaningType,
+        observations,
+        active_animal_ids: activeAnimalIds,
+      })
 
-      if (cleanErr) throw cleanErr
-
-      // 2. Link with all active animals in kennel
-      if (cleanRes && activeKennels.length > 0) {
-        const cleaningAnimalLinks = activeKennels.map(k => ({
-          cleaning_id: cleanRes.id,
-          animal_id: k.animal_id,
-        }))
-        await supabase.from('cleaning_animals').insert(cleaningAnimalLinks)
-      }
+      if (!res.success) throw new Error(res.error)
 
       setShowCleaningModal(false)
       setObservations('')
