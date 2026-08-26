@@ -8,6 +8,7 @@ import { FileCheck, Printer, Camera, Plus, FileText, CheckCircle, Eye, X, Trash2
 import { createDeliveryActAction, getDeliveryActsDataAction, updateSignedScanAction } from './actions'
 import { formatFreeText, formatRut } from '@/lib/utils/formatters'
 import { sendDeliveryActWhatsAppAlert } from '@/lib/utils/whatsapp'
+import { uploadImageFile } from '@/lib/utils/uploadHelpers'
 
 const toTitleCase = formatFreeText
 
@@ -19,6 +20,7 @@ export default function DeliveryActsPage() {
   const [showModal, setShowModal] = useState(false)
   const [showScanModal, setShowScanModal] = useState<string | null>(null)
   const [scanImage, setScanImage] = useState<string | null>(null)
+  const [scanFile, setScanFile] = useState<File | null>(null)
   const { profile } = useAuth()
   const supabase = createClient()
 
@@ -181,6 +183,7 @@ export default function DeliveryActsPage() {
   const handleScanUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+    setScanFile(file)
     const reader = new FileReader()
     reader.onload = (event) => {
       if (event.target?.result) setScanImage(event.target.result as string)
@@ -189,19 +192,26 @@ export default function DeliveryActsPage() {
   }
 
   const handleSaveSignedScan = async () => {
-    if (!showScanModal || !scanImage) return
+    if (!showScanModal || (!scanFile && !scanImage)) return
     setSaving(true)
 
     try {
-      const res = await updateSignedScanAction(showScanModal, scanImage)
+      let finalScanUrl = scanImage || ''
+      if (scanFile) {
+        finalScanUrl = await uploadImageFile(scanFile, `delivery_acts/${showScanModal}`)
+      }
+
+      const res = await updateSignedScanAction(showScanModal, finalScanUrl)
       if (!res.success) throw new Error(res.error)
 
       setShowScanModal(null)
       setScanImage(null)
+      setScanFile(null)
       fetchActsData()
       alert('Acta firmada y escaneada guardada correctamente.')
     } catch (err: any) {
-      alert('Error guardando escáner: ' + err.message)
+      console.error('Error saving scan:', err)
+      alert('Error guardando escáner: ' + (err?.message || 'Error de conexión'))
     } finally {
       setSaving(false)
     }
@@ -414,14 +424,26 @@ export default function DeliveryActsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Teléfono</label>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Teléfono Receptor</label>
                   <input
                     type="text"
                     value={receiverPhone}
                     onChange={(e) => setReceiverPhone(e.target.value)}
+                    placeholder="+56 9 1234 5678"
                     className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Correo Electrónico Receptor</label>
+                <input
+                  type="email"
+                  value={receiverEmail}
+                  onChange={(e) => setReceiverEmail(e.target.value)}
+                  placeholder="ejemplo@correo.cl"
+                  className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs"
+                />
               </div>
 
               <div>
@@ -468,7 +490,7 @@ export default function DeliveryActsPage() {
       {/* Modal Escanear Acta Firmada */}
       {showScanModal && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-2xl p-6 space-y-4">
+          <div className="bg-white w-full max-w-md rounded-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto shadow-2xl">
             <h3 className="text-lg font-bold text-gray-900">Escanear / Subir Acta Firmada</h3>
 
             <div className="space-y-3">
@@ -596,7 +618,9 @@ export default function DeliveryActsPage() {
                   <p><strong>Nombre Completo:</strong> {toTitleCase(selectedPreviewAct?.receiver_name) || 'Nombre Receptor'}</p>
                   <p><strong>RUT Receptor:</strong> {formatRut(selectedPreviewAct?.receiver_rut) || '12.345.678-9'}</p>
                   <p><strong>Organización / Refugio:</strong> {toTitleCase(selectedPreviewAct?.receiver_organization) || 'Particular'}</p>
-                  <p><strong>Teléfono / Domicilio:</strong> {selectedPreviewAct?.receiver_phone || '+56 9 1234 5678'} | {toTitleCase(selectedPreviewAct?.receiver_address) || 'Dirección de Destino'}</p>
+                  <p><strong>Correo Electrónico:</strong> {selectedPreviewAct?.receiver_email || 'No registrado'}</p>
+                  <p><strong>Teléfono:</strong> {selectedPreviewAct?.receiver_phone || '+56 9 1234 5678'}</p>
+                  <p><strong>Dirección de Destino:</strong> {toTitleCase(selectedPreviewAct?.receiver_address) || 'Dirección de Destino'}</p>
                 </div>
               </div>
 
