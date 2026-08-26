@@ -6,7 +6,7 @@ export async function getExpedientsDataAction() {
   try {
     const { data: animalData, error: aErr } = await supabaseAdmin
       .from('animal_records')
-      .select('*, event:events(*, client:clients(*)), delivery_acts(*), adoptions:adoption_records(*)')
+      .select('*, event:events(*, client:clients(*)), delivery_acts(*), adoptions:adoption_records(*), kennel_records(*)')
       .order('created_at', { ascending: false })
 
     if (aErr) console.error('Error fetching expedients animal_records:', aErr)

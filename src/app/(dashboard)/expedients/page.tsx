@@ -5,9 +5,32 @@ import { createClient } from '@/lib/supabase/client'
 import { 
   FileText, CheckCircle2, AlertCircle, Search, Calendar, 
   Filter, FileSpreadsheet, ChevronDown, ChevronUp, Clock, 
-  Dog, Award, CheckCircle, AlertTriangle, Trash2
+  Dog, Award, CheckCircle, AlertTriangle, Trash2, Download,
+  Heart, FileCheck, ExternalLink
 } from 'lucide-react'
 import { getExpedientsDataAction, deleteExpedientAction } from './actions'
+import { formatRut } from '@/lib/utils/formatters'
+
+function getKennelDaysSummary(animal: any) {
+  const entryStr = animal.kennel_records?.[0]?.entry_datetime || animal.created_at || animal.event?.event_date
+  const exitStr = animal.kennel_records?.[0]?.exit_datetime || animal.delivery_acts?.[0]?.delivery_datetime
+
+  const entry = entryStr ? new Date(entryStr) : new Date()
+  const exit = exitStr ? new Date(exitStr) : new Date()
+
+  const diffMs = Math.max(0, exit.getTime() - entry.getTime())
+  const days = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)))
+
+  const entryFormatted = entryStr ? new Date(entryStr).toLocaleDateString('es-CL') : 'No registrada'
+  const exitFormatted = exitStr ? new Date(exitStr).toLocaleDateString('es-CL') : null
+
+  return {
+    days,
+    entryFormatted,
+    exitFormatted,
+    isStillInKennel: !exitStr && animal.animal_status === 'En canil'
+  }
+}
 
 const MONTHS_CONFIG = [
   { value: '12', name: 'Diciembre' },
@@ -421,7 +444,17 @@ export default function ExpedientsPage() {
         <div className="p-8 text-center text-xs text-gray-500">Cargando expedientes digitales...</div>
       ) : (
         <div className="space-y-4">
-          {MONTHS_CONFIG.filter(m => !selectedMonth || m.value === selectedMonth).map(m => {
+          {(() => {
+            const now = new Date()
+            const currentYear = now.getFullYear()
+            const currentMonthNum = now.getMonth() + 1
+            const visibleMonths = MONTHS_CONFIG.filter(m => {
+              if (selectedYear > currentYear) return false
+              if (selectedYear < currentYear) return true
+              return parseInt(m.value, 10) <= currentMonthNum
+            })
+
+            return visibleMonths.filter(m => !selectedMonth || m.value === selectedMonth).map(m => {
             const monthAnimals = filteredAnimals.filter(a => {
               const d = getAnimalCaptureDate(a)
               const mStr = String(d.getMonth() + 1).padStart(2, '0')
@@ -568,28 +601,43 @@ export default function ExpedientsPage() {
                 )}
               </div>
             )
-          })}
+          })
+        })()}
         </div>
       )}
 
-      {/* Modal Popup Auditoría de Expediente */}
+      {/* Modal Popup Auditoría & Ficha Completa de Expediente */}
       {selectedAnimal && (() => {
         const items = getChecklistItems(selectedAnimal)
         const completedCount = items.filter(i => i.ok).length
         const totalCount = items.length
         const percentage = Math.round((completedCount / totalCount) * 100)
+        const daysInfo = getKennelDaysSummary(selectedAnimal)
+        const act = selectedAnimal.delivery_acts && selectedAnimal.delivery_acts.length > 0 ? selectedAnimal.delivery_acts[0] : null
+        const adoption = selectedAnimal.adoptions && selectedAnimal.adoptions.length > 0 ? selectedAnimal.adoptions[0] : null
+        const photoUrl = selectedAnimal.photo_urls && selectedAnimal.photo_urls[0] ? selectedAnimal.photo_urls[0] : null
 
         return (
-          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 overflow-y-auto">
-            <div className="bg-white w-full max-w-xl rounded-2xl p-6 space-y-5 shadow-2xl my-8">
+          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+            <div className="bg-white w-full max-w-3xl rounded-2xl p-5 sm:p-6 space-y-5 shadow-2xl max-h-[92vh] overflow-y-auto my-auto">
+              
+              {/* Header Modal */}
               <div className="flex items-start justify-between border-b border-gray-100 pb-4">
                 <div>
                   <span className="text-[10px] font-black text-orange-600 uppercase tracking-wider">
-                    EXPEDIENTE N° {selectedAnimal.id.slice(0, 8).toUpperCase()}
+                    FICHA TÉCNICA Y AUDITORÍA DE EXPEDIENTE N° EXP-{selectedAnimal.id.slice(0, 8).toUpperCase()}
                   </span>
-                  <h3 className="text-base font-bold text-gray-900">Auditoría Documental - {selectedAnimal.species}</h3>
+                  <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2 mt-0.5">
+                    <span>{selectedAnimal.species} - {selectedAnimal.sex}</span>
+                    <span className={`px-2.5 py-0.5 text-xs font-bold rounded-full ${
+                      selectedAnimal.animal_status === 'Finalizado' ? 'bg-emerald-100 text-emerald-800' :
+                      selectedAnimal.animal_status === 'Pendiente Adopción' ? 'bg-purple-100 text-purple-800' : 'bg-amber-100 text-amber-800'
+                    }`}>
+                      {selectedAnimal.animal_status}
+                    </span>
+                  </h3>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    {selectedAnimal.event?.client?.name || 'DGAC'} | Capturado el {new Date(selectedAnimal.created_at).toLocaleDateString('es-CL')}
+                    {selectedAnimal.event?.client?.name || 'Cliente DGAC'} | Capturado el {formatAnimalCaptureDate(selectedAnimal)}
                   </p>
                 </div>
 
@@ -601,64 +649,200 @@ export default function ExpedientsPage() {
                 </button>
               </div>
 
-              {/* Progress summary banner */}
-              <div className="p-4 bg-gray-50 rounded-xl border border-gray-200 space-y-2">
+              {/* Ficha Resumen con Foto del Animal */}
+              <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 flex flex-col sm:flex-row gap-4 items-center">
+                {photoUrl ? (
+                  <a href={photoUrl} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                    <img
+                      src={photoUrl}
+                      alt={`Foto ${selectedAnimal.species}`}
+                      className="w-28 h-28 object-cover rounded-xl border border-gray-300 shadow-sm hover:opacity-90 transition"
+                    />
+                  </a>
+                ) : (
+                  <div className="w-28 h-28 bg-gray-200 rounded-xl flex items-center justify-center text-gray-400 shrink-0">
+                    <Dog className="w-10 h-10" />
+                  </div>
+                )}
+
+                <div className="flex-1 text-xs space-y-1.5 w-full">
+                  <div className="grid grid-cols-2 gap-2">
+                    <p className="text-gray-600"><strong>Especie:</strong> {selectedAnimal.species}</p>
+                    <p className="text-gray-600"><strong>Sexo:</strong> {selectedAnimal.sex}</p>
+                    <p className="text-gray-600"><strong>Tamaño:</strong> {selectedAnimal.size || 'Mediano'}</p>
+                    <p className="text-gray-600"><strong>Edad Aparente:</strong> {selectedAnimal.apparent_age || 'Adulto'}</p>
+                    <p className="text-gray-600 col-span-2"><strong>Color / Señas:</strong> {selectedAnimal.color_features || 'Sin señas'}</p>
+                    {(adoption?.microchip_number || selectedAnimal.microchip_number) && (
+                      <p className="text-purple-700 font-bold col-span-2 bg-purple-50 p-1.5 rounded border border-purple-200">
+                        🏷️ N° Microchip: {adoption?.microchip_number || selectedAnimal.microchip_number}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Trazabilidad en Canil & Días de Custodia */}
+              <div className="bg-blue-50/60 p-4 rounded-xl border border-blue-200 text-xs space-y-2">
+                <h4 className="font-bold text-blue-900 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                  <Clock className="w-4 h-4 text-blue-600" />
+                  <span>Trazabilidad y Permanencia en Canil</span>
+                </h4>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-blue-950">
+                  <p><strong>Fecha Ingreso a Canil:</strong> {daysInfo.entryFormatted}</p>
+                  <p><strong>Fecha Salida / Retiro:</strong> {daysInfo.exitFormatted || 'En canil (Activo)'}</p>
+                  <p className="col-span-1 sm:col-span-2 font-bold text-blue-900">
+                    ⏱️ <strong>Días de Custodia:</strong> {daysInfo.days} día{daysInfo.days > 1 ? 's' : ''} {daysInfo.isStillInKennel ? '(Actualmente en custodia)' : `(del ${daysInfo.entryFormatted} al ${daysInfo.exitFormatted})`}
+                  </p>
+                  <p className="col-span-1 sm:col-span-2 text-blue-800">
+                    🧼 <strong>Mantenimiento de Canil:</strong> {cleaningsCount} registros de aseo y desinfección en sistema.
+                  </p>
+                </div>
+              </div>
+
+              {/* Sección: Acta de Entrega y Retiro (Si fue emitido) */}
+              <div className="bg-emerald-50/50 p-4 rounded-xl border border-emerald-200 text-xs space-y-2.5">
+                <h4 className="font-bold text-emerald-900 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                  <FileCheck className="w-4 h-4 text-emerald-600" />
+                  <span>Ficha de Entrega y Retiro de Canil</span>
+                </h4>
+
+                {act ? (
+                  <div className="space-y-2 text-emerald-950">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <p><strong>N° Acta de Entrega:</strong> {act.act_number}</p>
+                      <p><strong>Fecha de Entrega:</strong> {new Date(act.delivery_datetime || act.created_at).toLocaleDateString('es-CL')}</p>
+                      <p><strong>Receptor / Quién Retiró:</strong> {act.receiver_name}</p>
+                      <p><strong>RUT Receptor:</strong> {formatRut(act.receiver_rut)}</p>
+                      <p><strong>Teléfono Receptor:</strong> {act.receiver_phone || 'No registrado'}</p>
+                      <p><strong>Correo Receptor:</strong> {act.receiver_email || 'No registrado'}</p>
+                      <p><strong>Organización / Agrupación:</strong> {act.receiver_organization || 'Particular'}</p>
+                      <p><strong>Dirección de Destino:</strong> {act.receiver_address || 'No registrada'}</p>
+                    </div>
+
+                    <div className="pt-2 border-t border-emerald-200 flex items-center justify-between flex-wrap gap-2">
+                      <span className="font-semibold text-emerald-900">Documento de Acta Firmada:</span>
+                      {act.signed_scan_url ? (
+                        <a
+                          href={act.signed_scan_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow transition inline-flex items-center gap-1.5"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          <span>Ver / Descargar Escáner de Acta Firmada</span>
+                        </a>
+                      ) : (
+                        <span className="text-amber-700 font-semibold text-[11px] bg-amber-50 px-2.5 py-1 rounded border border-amber-200">
+                          ⚠️ Pendiente escáner firmado en /delivery-acts
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-gray-500 italic">No se ha emitido Acta de Entrega para este expediente.</p>
+                )}
+              </div>
+
+              {/* Sección: Adopción Responsable (Si existe registro de adopción) */}
+              <div className="bg-purple-50/50 p-4 rounded-xl border border-purple-200 text-xs space-y-2.5">
+                <h4 className="font-bold text-purple-900 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                  <Heart className="w-4 h-4 text-purple-600" />
+                  <span>Contrato y Registro de Adopción Responsable</span>
+                </h4>
+
+                {adoption ? (
+                  <div className="space-y-2 text-purple-950">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <p><strong>Adoptante:</strong> {adoption.adopter_name}</p>
+                      <p><strong>RUT Adoptante:</strong> {formatRut(adoption.adopter_rut)}</p>
+                      <p><strong>Teléfono:</strong> {adoption.adopter_phone || 'No registrado'}</p>
+                      <p><strong>Correo Electrónico:</strong> {adoption.adopter_email || 'No registrado'}</p>
+                      <p className="col-span-2"><strong>Dirección Residencial:</strong> {adoption.adopter_address || 'No registrada'}</p>
+                    </div>
+
+                    <div className="pt-2 border-t border-purple-200 flex items-center justify-between flex-wrap gap-2">
+                      <span className="font-semibold text-purple-900">Documento de Contrato de Adopción:</span>
+                      {adoption.contract_url ? (
+                        <a
+                          href={adoption.contract_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3.5 py-1.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow transition inline-flex items-center gap-1.5"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          <span>Ver / Descargar Contrato y Ficha de Adopción</span>
+                        </a>
+                      ) : (
+                        <span className="text-gray-500 font-semibold text-[11px] bg-white px-2.5 py-1 rounded border border-purple-200">
+                          Pendiente adjuntar contrato en /adoptions
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-gray-500 italic">No se ha registrado Ficha / Contrato de Adopción para este expediente.</p>
+                )}
+              </div>
+
+              {/* Checklist Completo de Auditoría Documental */}
+              <div className="space-y-2.5">
                 <div className="flex justify-between items-center text-xs">
-                  <span className="font-bold text-gray-800">Estado Global del Expediente</span>
+                  <h4 className="font-bold text-gray-800 uppercase tracking-wider text-[11px]">Checklist de Cumplimiento Auditoría</h4>
                   <span className={`px-2.5 py-0.5 font-bold rounded-full text-[11px] ${
                     percentage === 100 ? 'bg-emerald-100 text-emerald-800' : 'bg-orange-100 text-orange-800'
                   }`}>
                     {completedCount} de {totalCount} documentos ({percentage}%)
                   </span>
                 </div>
-                <div className="w-full bg-gray-200 h-2.5 rounded-full overflow-hidden">
+
+                <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
                   <div
                     className={`h-full transition-all duration-300 ${percentage === 100 ? 'bg-emerald-500' : 'bg-orange-500'}`}
                     style={{ width: `${percentage}%` }}
                   ></div>
                 </div>
-              </div>
 
-              {/* Itemized Audit Checklist */}
-              <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
-                <h4 className="text-xs font-bold text-gray-800 uppercase tracking-wider mb-2">Checklist de Cumplimiento Auditoría</h4>
-                {items.map((item, idx) => (
-                  <div
-                    key={idx}
-                    className={`p-3 rounded-xl border text-xs flex items-center justify-between gap-3 ${
-                      item.ok ? 'bg-emerald-50/60 border-emerald-200' : 'bg-red-50/60 border-red-200'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      {item.ok ? (
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                      ) : (
-                        <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
-                      )}
-                      <div>
-                        <p className={`font-bold ${item.ok ? 'text-emerald-950' : 'text-red-950'}`}>{item.label}</p>
-                        <p className="text-[11px] text-gray-500">{item.detail}</p>
+                <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
+                  {items.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className={`p-2.5 rounded-xl border text-xs flex items-center justify-between gap-3 ${
+                        item.ok ? 'bg-emerald-50/60 border-emerald-200' : 'bg-red-50/60 border-red-200'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        {item.ok ? (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                        ) : (
+                          <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+                        )}
+                        <div>
+                          <p className={`font-bold ${item.ok ? 'text-emerald-950' : 'text-red-950'}`}>{item.label}</p>
+                          <p className="text-[10px] text-gray-500">{item.detail}</p>
+                        </div>
                       </div>
-                    </div>
 
-                    <span className={`px-2 py-0.5 text-[10px] font-bold rounded ${
-                      item.ok ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'
-                    }`}>
-                      {item.ok ? 'Completo' : 'Pendiente'}
-                    </span>
-                  </div>
-                ))}
+                      <span className={`px-2 py-0.5 text-[9px] font-bold rounded ${
+                        item.ok ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'
+                      }`}>
+                        {item.ok ? 'Completo' : 'Pendiente'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
 
-              {/* Action Buttons */}
+              {/* Botón de Cierre */}
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
                 <button
                   onClick={() => setSelectedAnimal(null)}
                   className="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white font-bold text-xs rounded-xl shadow transition cursor-pointer"
                 >
-                  Cerrar Auditoría
+                  Cerrar Expediente
                 </button>
               </div>
+
             </div>
           </div>
         )
