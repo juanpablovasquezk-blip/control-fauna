@@ -7,6 +7,7 @@ import {
   ChevronDown, ChevronUp, Filter, FileSpreadsheet, CalendarDays
 } from 'lucide-react'
 import { getPestControlDataAction, createPestRecordAction } from './actions'
+import { formatFreeText } from '@/lib/utils/formatters'
 
 const PRESET_REASONS = [
   'Sin caza, por lluvia / clima adverso',
@@ -163,7 +164,7 @@ export default function PestControlPage() {
 
     const totalAnimals = Number(rabbitsMale) + Number(rabbitsFemale) + Number(pigeons)
 
-    const formattedSector = capitalizeSentence(sector)
+    const formattedSector = formatFreeText(sector)
     let finalObservations = observations.trim()
     if (totalAnimals === 0) {
       if (!noHuntingReason) {
@@ -175,12 +176,12 @@ export default function PestControlPage() {
           alert('Por favor especifique el motivo de no-caza.')
           return
         }
-        finalObservations = capitalizeSentence(customReason) + (observations ? ' | ' + capitalizeSentence(observations) : '')
+        finalObservations = formatFreeText(customReason) + (observations ? ' | ' + formatFreeText(observations) : '')
       } else {
-        finalObservations = noHuntingReason + (observations ? ' | ' + capitalizeSentence(observations) : '')
+        finalObservations = noHuntingReason + (observations ? ' | ' + formatFreeText(observations) : '')
       }
     } else {
-      finalObservations = capitalizeSentence(finalObservations)
+      finalObservations = formatFreeText(finalObservations)
     }
 
     setSaving(true)

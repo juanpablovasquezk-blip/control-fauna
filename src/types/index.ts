@@ -82,6 +82,7 @@ export interface EventActivation {
   event_code: string;
   client_id: string;
   operator_id: string;
+  requested_by?: string;
   event_type: string;
   event_date: string;
   notice_time?: string;

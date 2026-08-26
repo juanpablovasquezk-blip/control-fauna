@@ -6,16 +6,9 @@ import { useAuth } from '@/lib/auth/AuthProvider'
 import { DeliveryAct, Client, AnimalRecord } from '@/types'
 import { FileCheck, Printer, Camera, Plus, FileText, CheckCircle, Eye, X } from 'lucide-react'
 import { createDeliveryActAction, getDeliveryActsDataAction, updateSignedScanAction } from './actions'
+import { formatFreeText } from '@/lib/utils/formatters'
 
-function toTitleCase(str: string | undefined | null): string {
-  if (!str) return ''
-  return str
-    .toLowerCase()
-    .trim()
-    .split(' ')
-    .map(word => word ? word.charAt(0).toUpperCase() + word.slice(1) : '')
-    .join(' ')
-}
+const toTitleCase = formatFreeText
 
 export default function DeliveryActsPage() {
   const [acts, setActs] = useState<DeliveryAct[]>([])

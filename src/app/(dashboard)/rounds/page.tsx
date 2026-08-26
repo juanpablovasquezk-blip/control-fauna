@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth/AuthProvider'
 import { Round } from '@/types'
 import { Compass, AlertTriangle, Camera, Plus, CheckCircle, Clock, Filter, Calendar, Search, Eye, X, Wrench, User, FileText } from 'lucide-react'
+import { formatFreeText } from '@/lib/utils/formatters'
 
 export default function RoundsPage() {
   const [rounds, setRounds] = useState<Round[]>([])
@@ -175,9 +176,11 @@ export default function RoundsPage() {
     try {
       const selectedOperatorId = (isAdminOrSuper && operatorId) ? operatorId : profile.id
 
-      const formattedObservations = specificLocation
-        ? `[Lugar: ${specificLocation}] ${observations}`.trim()
-        : observations
+      const formattedLocation = formatFreeText(specificLocation)
+      const formattedObs = formatFreeText(observations)
+      const formattedObservations = formattedLocation
+        ? `[Lugar: ${formattedLocation}] ${formattedObs}`.trim()
+        : formattedObs
 
       // 1. Insert Round
       const { data: roundData, error: roundError } = await supabase
@@ -199,8 +202,8 @@ export default function RoundsPage() {
       if (hasFenceIncident && roundData) {
         await supabase.from('fence_incidents').insert({
           round_id: roundData.id,
-          damage_description: damageDescription,
-          action_taken: actionTaken,
+          damage_description: formatFreeText(damageDescription),
+          action_taken: formatFreeText(actionTaken),
           was_repaired: wasRepaired,
           damage_photo_urls: damagePhotos,
           repair_photo_urls: repairPhotos,

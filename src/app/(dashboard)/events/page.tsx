@@ -26,6 +26,8 @@ import {
   Clock
 } from 'lucide-react'
 
+import { formatFreeText } from '@/lib/utils/formatters'
+
 export default function EventsPage() {
   const [activations, setActivations] = useState<EventActivation[]>([])
   const [clients, setClients] = useState<Client[]>([])
@@ -42,6 +44,7 @@ export default function EventsPage() {
 
   // New Activation Form State
   const [clientId, setClientId] = useState('')
+  const [requestedBy, setRequestedBy] = useState('')
   const [specificLocation, setSpecificLocation] = useState('')
   const [zones, setZones] = useState<any[]>([])
   const [airportZone, setAirportZone] = useState('')
@@ -144,6 +147,7 @@ export default function EventsPage() {
 
   const openNewActivationModal = () => {
     setClientId('')
+    setRequestedBy('')
     setAirportZone('')
     setSpecificLocation('')
     setSituationDescription('')
@@ -188,6 +192,10 @@ export default function EventsPage() {
       alert('Debe seleccionar el cliente solicitante.')
       return
     }
+    if (!requestedBy.trim()) {
+      alert('Debe ingresar la persona o entidad que activa / solicita.')
+      return
+    }
     if (!airportZone) {
       alert('Debe seleccionar la zona del aeródromo.')
       return
@@ -206,19 +214,26 @@ export default function EventsPage() {
     try {
       const selectedOperatorId = (isAdminOrSuper && operatorId) ? operatorId : profile.id
       const code = `FAU-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${Math.floor(1000 + Math.random() * 9000)}`
+      
+      const formattedRequestedBy = formatFreeText(requestedBy)
+      const formattedLocation = formatFreeText(specificLocation)
+      const formattedSituation = formatFreeText(situationDescription)
+
       const { error } = await supabase.from('events').insert({
         event_code: code,
         client_id: clientId,
         operator_id: selectedOperatorId,
-        specific_location: specificLocation,
+        requested_by: formattedRequestedBy,
+        specific_location: formattedLocation,
         airport_zone: airportZone,
-        situation_description: situationDescription,
+        situation_description: formattedSituation,
         general_result: generalResult || 'Captura total',
         status: 'En curso',
       })
 
       if (error) throw error
       setShowModal(false)
+      setRequestedBy('')
       setSpecificLocation('')
       setSituationDescription('')
       setAirportZone('')
@@ -293,7 +308,7 @@ export default function EventsPage() {
           species: species as any,
           sex: sex as any,
           size: size as any,
-          color_features: colorFeatures,
+          color_features: formatFreeText(colorFeatures),
           apparent_age: (apparentAge || 'Adulto') as any,
           was_captured: wasCaptured,
           animal_status: wasCaptured ? 'En canil' : 'Escapó',
@@ -546,6 +561,10 @@ export default function EventsPage() {
                         </span>
                       </div>
                       <h3 className="text-base font-bold text-gray-900 mt-0.5">{ev.client?.name}</h3>
+                      <p className="text-xs text-gray-700 flex items-center gap-1.5 mt-0.5">
+                        <User className="w-3.5 h-3.5 text-orange-600" />
+                        <span><strong>Solicitante:</strong> {ev.requested_by || 'No especificado'}</span>
+                      </p>
                       <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
                         <MapPin className="w-3.5 h-3.5 text-gray-400" />
                         <span>{ev.specific_location}</span>
@@ -753,6 +772,7 @@ export default function EventsPage() {
                       <td className="p-3">
                         <div className="font-bold text-gray-800">{ev.client?.name}</div>
                         <div className="text-[11px] text-gray-500">{ev.specific_location} ({ev.airport_zone})</div>
+                        {ev.requested_by && <div className="text-[10px] text-orange-700 font-semibold mt-0.5">Sol: {ev.requested_by}</div>}
                       </td>
 
                       <td className="p-3">
@@ -854,6 +874,19 @@ export default function EventsPage() {
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">Persona o Entidad que Activa / Solicita *</label>
+                <input
+                  type="text"
+                  required
+                  value={requestedBy}
+                  onChange={(e) => setRequestedBy(e.target.value)}
+                  onBlur={() => setRequestedBy(formatFreeText(requestedBy))}
+                  placeholder="Ej: Torre de Control, SAM 4, Pedro Soto (DGAC)"
+                  className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-medium focus:bg-white focus:ring-2 focus:ring-orange-500"
+                />
               </div>
 
               <div>
@@ -1245,6 +1278,7 @@ export default function EventsPage() {
                 </h4>
                 <div className="space-y-1 text-gray-700">
                   <p><strong>Cliente:</strong> {showDetailModal.client?.name}</p>
+                  <p><strong>Persona / Entidad que Activa:</strong> {showDetailModal.requested_by || 'No especificado'}</p>
                   <p><strong>Operador a Cargo:</strong> {showDetailModal.operator?.full_name || 'No registrado'}</p>
                   <p><strong>Zona:</strong> {showDetailModal.airport_zone}</p>
                   <p><strong>Lugar Específico:</strong> {showDetailModal.specific_location}</p>
