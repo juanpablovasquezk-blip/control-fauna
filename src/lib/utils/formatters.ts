@@ -71,3 +71,35 @@ export function formatRut(rutStr: string | null | undefined): string {
   const formattedBody = body.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
   return `${formattedBody}-${dv}`
 }
+
+export function openDocumentUrl(url: string | null | undefined, title: string = 'documento.pdf') {
+  if (!url) return
+  if (url.startsWith('data:')) {
+    try {
+      const arr = url.split(',')
+      const mimeMatch = arr[0].match(/:(.*?);/)
+      const mime = mimeMatch ? mimeMatch[1] : 'application/pdf'
+      const bstr = atob(arr[1])
+      let n = bstr.length
+      const u8arr = new Uint8Array(n)
+      while (n--) {
+        u8arr[n] = bstr.charCodeAt(n)
+      }
+      const blob = new Blob([u8arr], { type: mime })
+      const blobUrl = URL.createObjectURL(blob)
+
+      const win = window.open(blobUrl, '_blank')
+      if (!win) {
+        const a = document.createElement('a')
+        a.href = blobUrl
+        a.download = title
+        a.click()
+      }
+    } catch (e) {
+      console.error('Error opening base64 document:', e)
+      window.open(url, '_blank')
+    }
+  } else {
+    window.open(url, '_blank')
+  }
+}

@@ -9,7 +9,7 @@ import {
   Heart, FileCheck, ExternalLink
 } from 'lucide-react'
 import { getExpedientsDataAction, deleteExpedientAction } from './actions'
-import { formatRut } from '@/lib/utils/formatters'
+import { formatRut, openDocumentUrl } from '@/lib/utils/formatters'
 
 function getKennelDaysSummary(animal: any) {
   const entryStr = animal.kennel_records?.[0]?.entry_datetime || animal.created_at || animal.event?.event_date
@@ -723,15 +723,14 @@ export default function ExpedientsPage() {
                     <div className="pt-2 border-t border-emerald-200 flex items-center justify-between flex-wrap gap-2">
                       <span className="font-semibold text-emerald-900">Documento de Acta Firmada:</span>
                       {act.signed_scan_url ? (
-                        <a
-                          href={act.signed_scan_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow transition inline-flex items-center gap-1.5"
+                        <button
+                          type="button"
+                          onClick={() => openDocumentUrl(act.signed_scan_url, `Acta_${act.act_number}.pdf`)}
+                          className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow transition inline-flex items-center gap-1.5 cursor-pointer"
                         >
                           <Download className="w-3.5 h-3.5" />
                           <span>Ver / Descargar Escáner de Acta Firmada</span>
-                        </a>
+                        </button>
                       ) : (
                         <span className="text-amber-700 font-semibold text-[11px] bg-amber-50 px-2.5 py-1 rounded border border-amber-200">
                           ⚠️ Pendiente escáner firmado en /delivery-acts
@@ -764,15 +763,14 @@ export default function ExpedientsPage() {
                     <div className="pt-2 border-t border-purple-200 flex items-center justify-between flex-wrap gap-2">
                       <span className="font-semibold text-purple-900">Documento de Contrato de Adopción:</span>
                       {adoption.contract_url ? (
-                        <a
-                          href={adoption.contract_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="px-3.5 py-1.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow transition inline-flex items-center gap-1.5"
+                        <button
+                          type="button"
+                          onClick={() => openDocumentUrl(adoption.contract_url, `Contrato_Adopcion.pdf`)}
+                          className="px-3.5 py-1.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow transition inline-flex items-center gap-1.5 cursor-pointer"
                         >
                           <Download className="w-3.5 h-3.5" />
                           <span>Ver / Descargar Contrato y Ficha de Adopción</span>
-                        </a>
+                        </button>
                       ) : (
                         <span className="text-gray-500 font-semibold text-[11px] bg-white px-2.5 py-1 rounded border border-purple-200">
                           Pendiente adjuntar contrato en /adoptions
