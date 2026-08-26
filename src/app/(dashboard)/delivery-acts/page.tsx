@@ -172,7 +172,8 @@ export default function DeliveryActsPage() {
   const [selectedPreviewAct, setSelectedPreviewAct] = useState<DeliveryAct | null>(null)
 
   return (
-    <div className="space-y-6 print:hidden">
+    <>
+      <div className="space-y-6 print:hidden">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
         <div>
@@ -431,6 +432,7 @@ export default function DeliveryActsPage() {
           </div>
         </div>
       )}
+      </div>
 
       {/* Modal 3: Vista Previa del Formato Oficial de Acta */}
       {showFormatPreview && (
@@ -576,6 +578,6 @@ export default function DeliveryActsPage() {
           </div>
         </div>
       )}
-    </div>
+    </>
   )
 }
