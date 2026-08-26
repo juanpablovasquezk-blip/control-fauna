@@ -100,6 +100,7 @@ export default function EventsPage() {
   const [closureType, setClosureType] = useState<ClosureType | ''>('')
   const [closureObs, setClosureObs] = useState('')
   const [hasFenceDamage, setHasFenceDamage] = useState(false)
+  const [damageZone, setDamageZone] = useState('')
   const [damageLocation, setDamageLocation] = useState('')
   const [damageDescription, setDamageDescription] = useState('')
   const [damageFile, setDamageFile] = useState<File | null>(null)
@@ -346,10 +347,6 @@ export default function EventsPage() {
       alert('Debe seleccionar la zona del aeródromo.')
       return
     }
-    if (!specificLocation.trim()) {
-      alert('Debe ingresar el lugar específico.')
-      return
-    }
     if (!situationDescription.trim()) {
       alert('Debe ingresar la descripción del aviso / situación.')
       return
@@ -362,10 +359,13 @@ export default function EventsPage() {
       const code = `FAU-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${Math.floor(1000 + Math.random() * 9000)}`
       
       const formattedRequestedBy = formatFreeText(requestedBy)
-      const formattedLocation = formatFreeText(specificLocation)
+      let formattedLocation = formatFreeText(specificLocation)
+      if (!formattedLocation) {
+        formattedLocation = airportZone
+      }
       const formattedSituation = formatFreeText(situationDescription)
 
-      const { error } = await supabase.from('events').insert({
+      const payload: any = {
         event_code: code,
         client_id: clientId,
         operator_id: selectedOperatorId,
@@ -375,7 +375,18 @@ export default function EventsPage() {
         situation_description: formattedSituation,
         general_result: generalResult || 'Captura total',
         status: 'En curso',
-      })
+      }
+
+      let { error } = await supabase.from('events').insert(payload)
+
+      // Fallback if requested_by column does not exist in Supabase schema yet
+      if (error && (error.message?.includes('requested_by') || error.code === 'PGRST204')) {
+        console.warn('requested_by column missing in events table, executing fallback insert:', error.message)
+        delete payload.requested_by
+        payload.situation_description = `[Solicita: ${formattedRequestedBy}] ` + formattedSituation
+        const fallbackRes = await supabase.from('events').insert(payload)
+        error = fallbackRes.error
+      }
 
       if (error) throw error
       setShowModal(false)
@@ -385,8 +396,9 @@ export default function EventsPage() {
       setAirportZone('')
       setClientId('')
       fetchInitialData()
+      alert('Activación creada con éxito.')
     } catch (err: any) {
-      alert('Error al crear activación: ' + err.message)
+      alert('Error al crear activación: ' + (err?.message || err || 'Error desconocido'))
     } finally {
       setSaving(false)
     }
@@ -492,6 +504,7 @@ export default function EventsPage() {
     setClosureType('Captura total')
     setClosureObs('')
     setHasFenceDamage(false)
+    setDamageZone(event.airport_zone || (zones[0]?.name || ''))
     setDamageLocation(event.specific_location || '')
     setDamageDescription('')
     setDamageFile(null)
@@ -540,22 +553,34 @@ export default function EventsPage() {
     try {
       let damagePhotoUrl = ''
       let repairPhotoUrl = ''
+      let fullLocationString = ''
 
-      if (hasFenceDamage && damageFile && repairFile) {
-        damagePhotoUrl = await uploadImageFile(damageFile, `fence_damage/${showCloseModal.id}`)
-        repairPhotoUrl = await uploadImageFile(repairFile, `fence_repair/${showCloseModal.id}`)
+      if (hasFenceDamage) {
+        const formattedDamageLoc = formatFreeText(damageLocation)
+        const selectedZone = damageZone || showCloseModal.airport_zone
+        fullLocationString = selectedZone
+          ? `${selectedZone}${formattedDamageLoc ? ' - ' + formattedDamageLoc : ''}`
+          : formattedDamageLoc
+
+        if (damageFile && repairFile) {
+          damagePhotoUrl = await uploadImageFile(damageFile, `fence_damage/${showCloseModal.id}`)
+          repairPhotoUrl = await uploadImageFile(repairFile, `fence_repair/${showCloseModal.id}`)
+        }
       }
 
       // Base payload using columns guaranteed to exist in schema
       const basePayload: any = {
         status: 'Cerrado',
         general_result: closureType === 'Captura total' || closureType === 'Captura parcial' ? closureType : closureType === 'Abandono' ? 'Animales escaparon' : 'Sin hallazgo',
-        observations: closureObs || '',
+        observations: formatFreeText(closureObs) || '',
         has_perimeter_damage: hasFenceDamage,
       }
 
       if (hasFenceDamage) {
-        const fullDesc = damageLocation ? `[Ubicación Daño: ${damageLocation}]\n${damageDescription}` : damageDescription
+        const fullDesc = fullLocationString
+          ? `[Ubicación Daño: ${fullLocationString}]\n${formatFreeText(damageDescription)}`
+          : formatFreeText(damageDescription)
+
         basePayload.damage_description = fullDesc
         basePayload.damage_photo_urls = [damagePhotoUrl]
         basePayload.damage_repaired = true
@@ -566,10 +591,10 @@ export default function EventsPage() {
       const fullPayload = {
         ...basePayload,
         closure_type: closureType,
-        closure_observations: closureObs || '',
+        closure_observations: formatFreeText(closureObs) || '',
         closed_at: new Date().toISOString(),
         closed_by: profile.id,
-        damage_location: damageLocation || '',
+        damage_location: fullLocationString || '',
       }
 
       // Try updating with fullPayload first
@@ -1072,13 +1097,13 @@ export default function EventsPage() {
               </div>
 
               <div>
-                <label className="block font-bold text-gray-700 mb-1">Lugar Específico</label>
+                <label className="block font-bold text-gray-700 mb-1">Lugar Específico (Opcional)</label>
                 <input
                   type="text"
-                  required
                   value={specificLocation}
                   onChange={(e) => setSpecificLocation(e.target.value)}
-                  placeholder="Ej: Umbral Pista 35L (Calle Alpha)"
+                  onBlur={() => setSpecificLocation(formatFreeText(specificLocation))}
+                  placeholder="Ej: Umbral Pista 35L (Si no se especifica, se usará la Zona)"
                   className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-medium focus:bg-white focus:ring-2 focus:ring-orange-500"
                 />
               </div>
@@ -1313,16 +1338,32 @@ export default function EventsPage() {
                 {/* Sub-formulario Daño en Reja (Campos obligatorios si está marcado) */}
                 {hasFenceDamage && (
                   <div className="pt-2 border-t border-amber-200 space-y-3">
-                    <div>
-                      <label className="block font-bold text-amber-900 mb-1">📍 Ubicación Específica del Daño *</label>
-                      <input
-                        type="text"
-                        required={hasFenceDamage}
-                        value={damageLocation}
-                        onChange={(e) => setDamageLocation(e.target.value)}
-                        placeholder="Ej: Reja Norte, Paño 12 (Cerca de Rodaje Alpha)"
-                        className="w-full p-2 bg-white border border-amber-300 rounded-lg text-xs"
-                      />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div>
+                        <label className="block font-bold text-amber-900 mb-1">Zona del Aeródromo (Daño en Reja) *</label>
+                        <select
+                          value={damageZone}
+                          onChange={(e) => setDamageZone(e.target.value)}
+                          className="w-full p-2 bg-white border border-amber-300 rounded-lg text-xs font-medium"
+                        >
+                          {zones.map((z) => (
+                            <option key={z.id} value={z.name}>{z.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-amber-900 mb-1">Lugar Específico del Daño *</label>
+                        <input
+                          type="text"
+                          required={hasFenceDamage}
+                          value={damageLocation}
+                          onChange={(e) => setDamageLocation(e.target.value)}
+                          onBlur={() => setDamageLocation(formatFreeText(damageLocation))}
+                          placeholder="Ej: Paño 12, Cerca de Rodaje Alpha"
+                          className="w-full p-2 bg-white border border-amber-300 rounded-lg text-xs"
+                        />
+                      </div>
                     </div>
 
                     <div>
