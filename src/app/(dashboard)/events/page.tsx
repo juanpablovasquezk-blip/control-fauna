@@ -815,16 +815,19 @@ export default function EventsPage() {
             .select()
             .single()
 
-          if (animalError) throw animalError
+          if (animalError) {
+            throw new Error(`Error al registrar Animal N° ${i + 1}: ${animalError.message || JSON.stringify(animalError)}`)
+          }
 
           if (animalData && (item.species === 'Perro' || item.species === 'Gato')) {
-            await supabase.from('kennel_records').insert({
+            const { error: kErr } = await supabase.from('kennel_records').insert({
               animal_id: animalData.id,
               species: item.species as any,
               entry_datetime: closedAtTimestamp,
               entry_responsible: profile.id,
               status: 'En canil',
             })
+            if (kErr) console.warn('Kennel record insert warning:', kErr.message)
           }
         }
       }
@@ -877,32 +880,51 @@ export default function EventsPage() {
       }
 
       // Try updating with fullPayload first
-      let { data, error } = await supabase
+      const { data: fullData, error: fullError } = await supabase
         .from('events')
         .update(fullPayload)
         .eq('id', showCloseModal.id)
         .select()
 
-      // Fallback if dedicated columns were missing or schema error
-      if (error || !data || data.length === 0) {
-        console.warn('Full update failed or returned empty data, attempting base update fallback...', error)
-        const fallbackRes = await supabase
+      if (fullError || !fullData || fullData.length === 0) {
+        console.warn('Full update failed or returned empty data, attempting base update fallback...', fullError)
+        const { data: baseData, error: baseError } = await supabase
           .from('events')
           .update(basePayload)
           .eq('id', showCloseModal.id)
           .select()
 
-        if (fallbackRes.error) throw fallbackRes.error
-        if (!fallbackRes.data || fallbackRes.data.length === 0) {
-          throw new Error('No se pudo actualizar el estado del procedimiento en la base de datos.')
+        if (baseError) {
+          throw new Error(baseError.message || JSON.stringify(baseError))
         }
+        if (!baseData || baseData.length === 0) {
+          throw new Error('No se pudo actualizar el estado del procedimiento (compruebe permisos RLS o conexión).')
+        }
+      }
+
+      if (hasFenceDamage) {
+        const selectedClient = clients.find(c => c.id === showCloseModal.client_id)
+        sendFenceDamageWhatsAppAlert({
+          event_code: showCloseModal.event_code,
+          damage_location: fullLocationString || showCloseModal.specific_location,
+          damage_description: formatFreeText(damageDescription),
+          damage_photo_url: damagePhotoUrl,
+          client_group_id: selectedClient?.whatsapp_group_id,
+        }).catch(err => console.warn('Fence damage WhatsApp alert error:', err))
       }
 
       alert(`Procedimiento ${showCloseModal.event_code} cerrado exitosamente.`)
       setShowCloseModal(null)
       await fetchInitialData()
     } catch (err: any) {
-      alert('Error cerrando procedimiento: ' + err.message)
+      console.error('Error cerrando procedimiento:', err)
+      let msg = 'Error desconocido'
+      if (typeof err === 'string') {
+        msg = err
+      } else if (err && typeof err === 'object') {
+        msg = err.message || err.details || err.hint || JSON.stringify(err)
+      }
+      alert(`Error cerrando procedimiento: ${msg}`)
     } finally {
       setClosing(false)
     }
