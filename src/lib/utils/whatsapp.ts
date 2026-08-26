@@ -175,25 +175,114 @@ export async function sendActivationWhatsAppAlert(params: {
   })
 }
 
-export async function sendFenceDamageWhatsAppAlert(params: {
-  event_code: string
-  damage_location: string
-  damage_description: string
-  damage_photo_url?: string
+export async function sendProcedureClosureWhatsAppAlert(params: {
+  client_name: string
+  airport_zone: string
+  general_result: string
+  observations?: string
+  has_fence_damage?: boolean
+  operator_name?: string
+  close_date?: string
+  close_time?: string
   client_group_id?: string
 }) {
+  const obsFormatted = params.observations ? formatFreeText(params.observations) : ''
+  const dateTimeStr = formatDateTime(params.close_date, params.close_time)
+
+  const message = [
+    `🔒 *CIERRE DE PROCEDIMIENTO DE FAUNA*`,
+    `• *Cliente:* ${formatFreeText(params.client_name)}`,
+    `• *Zona:* ${formatFreeText(params.airport_zone)}`,
+    `• *Resultado:* ${params.general_result}`,
+    obsFormatted ? `• *Observaciones:* ${obsFormatted}` : null,
+    params.has_fence_damage ? `• *Daño en Perímetro:* Detectado y Reparado` : null,
+    params.operator_name ? `• *Operador:* ${formatFreeText(params.operator_name)}` : null,
+    `• *Fecha/Hora:* ${dateTimeStr}`,
+  ]
+    .filter(Boolean)
+    .join('\n')
+
+  return sendWhatsAppMessage({
+    to: params.client_group_id,
+    body: message,
+  })
+}
+
+export async function sendCapturedAnimalWhatsAppAlert(params: {
+  species: string
+  sex: string
+  size: string
+  apparent_age: string
+  color_features?: string
+  photo_url?: string
+  index?: number
+  total?: number
+  client_group_id?: string
+}) {
+  const animalIcon = params.species === 'Gato' ? '🐱' : '🐕'
+  const indexStr = params.total && params.total > 1 ? ` (${params.index || 1} de ${params.total})` : ''
+
+  const message = [
+    `${animalIcon} *CAN CAPTURADO*${indexStr}`,
+    `• *Especie / Sexo:* ${params.species} ${params.sex}`,
+    `• *Tamaño / Edad:* ${params.size} - ${params.apparent_age}`,
+    params.color_features ? `• *Características:* ${formatFreeText(params.color_features)}` : null,
+    `• *Estado:* Ingresado a Canil`,
+  ]
+    .filter(Boolean)
+    .join('\n')
+
+  return sendWhatsAppMessage({
+    to: params.client_group_id,
+    body: message,
+    imageUrl: params.photo_url,
+  })
+}
+
+export async function sendFenceDamageWhatsAppAlert(params: {
+  location: string
+  damage_description: string
+  damage_photo_url?: string
+  close_date?: string
+  close_time?: string
+  client_group_id?: string
+}) {
+  const dateTimeStr = formatDateTime(params.close_date, params.close_time)
   const message = [
     `⚠️ *REPORTE DE DAÑO EN REJA PERIMETRAL*`,
-    `• *Ubicación:* ${formatFreeText(params.damage_location)}`,
-    `• *Detalle:* ${formatFreeText(params.damage_description)}`,
-    `• *Estado:* Reparado en terreno`,
-    `• *Fecha/Hora:* ${formatDateTime()}`,
+    `• *Ubicación:* ${formatFreeText(params.location)}`,
+    `• *Descripción del Daño:* ${formatFreeText(params.damage_description)}`,
+    `• *Fecha/Hora:* ${dateTimeStr}`,
   ].join('\n')
 
   return sendWhatsAppMessage({
     to: params.client_group_id,
     body: message,
     imageUrl: params.damage_photo_url,
+  })
+}
+
+export async function sendFenceRepairWhatsAppAlert(params: {
+  location: string
+  repair_description: string
+  repair_photo_url?: string
+  close_date?: string
+  close_time?: string
+  client_group_id?: string
+}) {
+  const dateTimeStr = formatDateTime(params.close_date, params.close_time)
+  const message = [
+    `🛠️ *REPARACIÓN DE CERCO PERIMETRAL*`,
+    `• *Ubicación:* ${formatFreeText(params.location)}`,
+    `• *Acción Tomada:* ${formatFreeText(params.repair_description)}`,
+    `• *Estado:* Reparado en terreno`,
+    `• *Fecha/Hora:* ${dateTimeStr}`,
+  ].join('\n')
+
+  return sendWhatsAppMessage({
+    to: params.client_group_id,
+    body: message,
+    imageUrl: params.repair_photo_url,
   })
 }
 

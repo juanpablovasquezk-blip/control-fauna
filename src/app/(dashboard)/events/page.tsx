@@ -32,7 +32,10 @@ import { formatFreeText } from '@/lib/utils/formatters'
 import { createExternalHandoverAction } from './actions'
 import { 
   sendActivationWhatsAppAlert, 
+  sendProcedureClosureWhatsAppAlert,
+  sendCapturedAnimalWhatsAppAlert,
   sendFenceDamageWhatsAppAlert, 
+  sendFenceRepairWhatsAppAlert,
   sendExternalHandoverWhatsAppAlert 
 } from '@/lib/utils/whatsapp'
 
@@ -154,6 +157,7 @@ export default function EventsPage() {
   const [damageZone, setDamageZone] = useState('')
   const [damageLocation, setDamageLocation] = useState('')
   const [damageDescription, setDamageDescription] = useState('')
+  const [repairDescription, setRepairDescription] = useState('')
   const [damageFile, setDamageFile] = useState<File | null>(null)
   const [repairFile, setRepairFile] = useState<File | null>(null)
   const [damagePreview, setDamagePreview] = useState<string | null>(null)
@@ -790,6 +794,7 @@ export default function EventsPage() {
       }
 
       // Save captured animals & create kennel records
+      const savedAnimalPhotoUrls: string[] = []
       if (closureAnimals.length > 0) {
         for (let i = 0; i < closureAnimals.length; i++) {
           const item = closureAnimals[i]
@@ -797,6 +802,7 @@ export default function EventsPage() {
           if (item.file) {
             photoUrl = await uploadImageFile(item.file, `animal_photos/${showCloseModal.id}`)
           }
+          savedAnimalPhotoUrls.push(photoUrl)
           const photoUrls = photoUrl ? [photoUrl] : []
 
           const { data: animalData, error: animalError } = await supabase
@@ -834,14 +840,17 @@ export default function EventsPage() {
 
       let damagePhotoUrl = ''
       let repairPhotoUrl = ''
-      let fullLocationString = ''
+      let cleanFenceLocation = ''
 
       if (hasFenceDamage) {
         const formattedDamageLoc = formatFreeText(damageLocation)
         const selectedZone = damageZone || showCloseModal.airport_zone
-        fullLocationString = selectedZone
-          ? `${selectedZone}${formattedDamageLoc ? ' - ' + formattedDamageLoc : ''}`
-          : formattedDamageLoc
+
+        if (!formattedDamageLoc || formattedDamageLoc.toLowerCase() === selectedZone.toLowerCase()) {
+          cleanFenceLocation = formatFreeText(selectedZone)
+        } else {
+          cleanFenceLocation = `${formatFreeText(selectedZone)} - ${formattedDamageLoc}`
+        }
 
         if (damageFile && repairFile) {
           damagePhotoUrl = await uploadImageFile(damageFile, `fence_damage/${showCloseModal.id}`)
@@ -859,10 +868,7 @@ export default function EventsPage() {
       }
 
       if (hasFenceDamage) {
-        const fullDesc = fullLocationString
-          ? `[Ubicación Daño: ${fullLocationString}]\n${formatFreeText(damageDescription)}`
-          : formatFreeText(damageDescription)
-
+        const fullDesc = `[Daño: ${formatFreeText(damageDescription)}]\n[Reparación: ${formatFreeText(repairDescription || damageDescription)}]`
         basePayload.damage_description = fullDesc
         basePayload.damage_photo_urls = [damagePhotoUrl]
         basePayload.damage_repaired = true
@@ -876,7 +882,7 @@ export default function EventsPage() {
         closure_observations: formatFreeText(closureObs) || '',
         closed_at: closedAtTimestamp,
         closed_by: profile.id,
-        damage_location: fullLocationString || '',
+        damage_location: cleanFenceLocation || '',
       }
 
       // Try updating with fullPayload first
@@ -902,15 +908,66 @@ export default function EventsPage() {
         }
       }
 
+      // ------------------------------------------------------------------------
+      // TRIGGER WHATSAPP NOTIFICATIONS ON CLOSURE
+      // ------------------------------------------------------------------------
+      const selectedClient = clients.find(c => c.id === showCloseModal.client_id)
+      const selectedOperator = operators.find(op => op.id === showCloseModal.operator_id)
+
+      // Mensaje 1: Resumen de Cierre de Procedimiento
+      sendProcedureClosureWhatsAppAlert({
+        client_name: selectedClient?.name || 'DGAC',
+        airport_zone: showCloseModal.airport_zone,
+        general_result: closureType as string,
+        observations: closureObs,
+        has_fence_damage: hasFenceDamage,
+        operator_name: selectedOperator?.full_name || profile?.full_name,
+        close_date: cleanCloseDate,
+        close_time: cleanCloseTime,
+        client_group_id: selectedClient?.whatsapp_group_id,
+      }).catch(err => console.warn('Procedure closure WhatsApp alert error:', err))
+
+      // Mensaje 2: Información de Canes Capturados con Foto (si aplica)
+      if (closureAnimals.length > 0) {
+        for (let i = 0; i < closureAnimals.length; i++) {
+          const item = closureAnimals[i]
+          const photoUrl = savedAnimalPhotoUrls[i] || ''
+
+          sendCapturedAnimalWhatsAppAlert({
+            species: item.species,
+            sex: item.sex,
+            size: item.size,
+            apparent_age: item.apparent_age,
+            color_features: item.color_features,
+            photo_url: photoUrl,
+            index: i + 1,
+            total: closureAnimals.length,
+            client_group_id: selectedClient?.whatsapp_group_id,
+          }).catch(err => console.warn('Captured animal WhatsApp alert error:', err))
+        }
+      }
+
+      // Mensaje 3 & 4: Daño en Reja y Reparación con Fotos Separadas (si aplica)
       if (hasFenceDamage) {
-        const selectedClient = clients.find(c => c.id === showCloseModal.client_id)
+        // Mensaje 3: Reporte de Daño en Reja con Foto del Daño
         sendFenceDamageWhatsAppAlert({
-          event_code: showCloseModal.event_code,
-          damage_location: fullLocationString || showCloseModal.specific_location,
-          damage_description: formatFreeText(damageDescription),
+          location: cleanFenceLocation,
+          damage_description: damageDescription,
           damage_photo_url: damagePhotoUrl,
+          close_date: cleanCloseDate,
+          close_time: cleanCloseTime,
           client_group_id: selectedClient?.whatsapp_group_id,
         }).catch(err => console.warn('Fence damage WhatsApp alert error:', err))
+
+        // Mensaje 4: Reparación de Cerco Perimetral con Foto de la Reparación
+        sendFenceRepairWhatsAppAlert({
+          location: cleanFenceLocation,
+          repair_description: repairDescription || damageDescription,
+          repair_photo_url: repairPhotoUrl,
+          close_date: cleanCloseDate,
+          close_time: cleanCloseTime,
+          client_group_id: selectedClient?.whatsapp_group_id,
+        }).catch(err => console.warn('Fence repair WhatsApp alert error:', err))
       }
 
       alert(`Procedimiento ${showCloseModal.event_code} cerrado exitosamente.`)
@@ -1912,16 +1969,29 @@ export default function EventsPage() {
                         </div>
                       </div>
 
-                      <div>
-                        <label className="block font-bold text-amber-900 mb-1">📝 Descripción del Daño y Reparación Realizada *</label>
-                        <textarea
-                          rows={2}
-                          required={hasFenceDamage}
-                          value={damageDescription}
-                          onChange={(e) => setDamageDescription(e.target.value)}
-                          placeholder="Ej: Malla ronzada de 40cm. Se instaló parche con alambre galvanizado."
-                          className="w-full p-2 bg-white border border-amber-300 rounded-lg text-xs"
-                        />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div>
+                          <label className="block font-bold text-amber-900 mb-1">📝 Descripción del Daño *</label>
+                          <textarea
+                            rows={2}
+                            required={hasFenceDamage}
+                            value={damageDescription}
+                            onChange={(e) => setDamageDescription(e.target.value)}
+                            placeholder="Ej: Agujero debajo de la malla perimetral."
+                            className="w-full p-2 bg-white border border-amber-300 rounded-lg text-xs"
+                          />
+                        </div>
+                        <div>
+                          <label className="block font-bold text-amber-900 mb-1">🛠️ Acción Tomada / Reparación *</label>
+                          <textarea
+                            rows={2}
+                            required={hasFenceDamage}
+                            value={repairDescription}
+                            onChange={(e) => setRepairDescription(e.target.value)}
+                            placeholder="Ej: Se coloca malla para tapar el agujero."
+                            className="w-full p-2 bg-white border border-amber-300 rounded-lg text-xs"
+                          />
+                        </div>
                       </div>
 
                       {/* Foto Daño & Foto Reparación */}
