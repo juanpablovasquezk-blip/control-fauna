@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth/AuthProvider'
 import { DeliveryAct, Client, AnimalRecord } from '@/types'
 import { FileCheck, Printer, Camera, Plus, FileText, CheckCircle, Eye, X, Trash2 } from 'lucide-react'
-import { createDeliveryActAction, getDeliveryActsDataAction, updateSignedScanAction } from './actions'
+import { createDeliveryActAction, getDeliveryActsDataAction, updateSignedScanAction, deleteDeliveryActAction } from './actions'
 import { formatFreeText, formatRut } from '@/lib/utils/formatters'
 import { sendDeliveryActWhatsAppAlert } from '@/lib/utils/whatsapp'
 import { uploadImageFile } from '@/lib/utils/uploadHelpers'
@@ -69,8 +69,8 @@ export default function DeliveryActsPage() {
     if (!confirm(`¿Está seguro de que desea eliminar el Acta N° ${actNumber}? Esta acción no se puede deshacer.`)) return
 
     try {
-      const { error } = await supabase.from('delivery_acts').delete().eq('id', id)
-      if (error) throw error
+      const res = await deleteDeliveryActAction(id)
+      if (!res.success) throw new Error(res.error)
       alert(`Acta N° ${actNumber} eliminada con éxito.`)
       fetchActsData()
     } catch (err: any) {

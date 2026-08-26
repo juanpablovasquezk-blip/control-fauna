@@ -121,3 +121,44 @@ export async function updateSignedScanAction(actId: string, scanUrl: string) {
     return { success: false, error: err.message }
   }
 }
+
+export async function deleteDeliveryActAction(actId: string) {
+  try {
+    const { data: act } = await supabaseAdmin
+      .from('delivery_acts')
+      .select('animal_id')
+      .eq('id', actId)
+      .single()
+
+    const { error } = await supabaseAdmin
+      .from('delivery_acts')
+      .delete()
+      .eq('id', actId)
+
+    if (error) throw error
+
+    if (act?.animal_id) {
+      const { data: remainingActs } = await supabaseAdmin
+        .from('delivery_acts')
+        .select('id')
+        .eq('animal_id', act.animal_id)
+
+      if (!remainingActs || remainingActs.length === 0) {
+        await supabaseAdmin
+          .from('animal_records')
+          .update({ animal_status: 'En canil' })
+          .eq('id', act.animal_id)
+
+        await supabaseAdmin
+          .from('kennel_records')
+          .update({ status: 'En canil' })
+          .eq('animal_id', act.animal_id)
+      }
+    }
+
+    return { success: true }
+  } catch (err: any) {
+    console.error('Error in deleteDeliveryActAction:', err)
+    return { success: false, error: err?.message || 'Error al eliminar el acta' }
+  }
+}
