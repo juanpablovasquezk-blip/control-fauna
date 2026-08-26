@@ -227,14 +227,26 @@ export async function saveWhatsAppSettingsAction(config: {
   token: string
   default_group_id: string
 }) {
-  const { error } = await supabaseAdmin.from('system_settings').upsert({
-    key: 'ultramsg_config',
-    value: config,
-    updated_at: new Date().toISOString(),
-  })
+  try {
+    const { error } = await supabaseAdmin.from('system_settings').upsert({
+      key: 'ultramsg_config',
+      value: config,
+      updated_at: new Date().toISOString(),
+    })
 
-  if (error) return { success: false, error: error.message }
-  return { success: true }
+    if (error) {
+      if (error.message?.includes('system_settings') || error.code === '42P01' || error.message?.includes('schema cache')) {
+        return {
+          success: false,
+          error: 'Falta crear la tabla system_settings en Supabase. Ejecute el script SQL provisto en el Editor SQL de Supabase.',
+        }
+      }
+      return { success: false, error: error.message }
+    }
+    return { success: true }
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Error guardando configuración de WhatsApp' }
+  }
 }
 
 export async function sendTestWhatsAppAction(params: {
