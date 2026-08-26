@@ -106,13 +106,24 @@ export default function KennelPage() {
 
     setActiveKennels(list)
 
-    // 3. Cleaning Logs
-    const { data: cleaningData } = await supabase
+    // 3. Cleaning Logs - Query with graceful fallback
+    let { data: cleaningData, error: cleanErr } = await supabase
       .from('kennel_cleanings')
       .select('*, operator:profiles(*)')
-      .order('cleaning_datetime', { ascending: false })
+      .order('created_at', { ascending: false })
 
-    if (cleaningData) setCleanings(cleaningData as KennelCleaning[])
+    if (cleanErr || !cleaningData) {
+      console.warn('Error fetching cleaning logs with operator join, trying fallback query:', cleanErr)
+      const { data: fallbackData } = await supabase
+        .from('kennel_cleanings')
+        .select('*')
+        .order('created_at', { ascending: false })
+      cleaningData = fallbackData as any
+    }
+
+    if (cleaningData) {
+      setCleanings(cleaningData as KennelCleaning[])
+    }
     setLoading(false)
   }
 
@@ -252,10 +263,10 @@ export default function KennelPage() {
                     <span className="text-xs font-bold text-gray-900">{c.cleaning_type}</span>
                   </div>
                   <p className="text-xs text-gray-600 mt-0.5">{c.observations || 'Sin observaciones'}</p>
-                  <p className="text-[10px] text-gray-400">Realizado por: {c.operator?.full_name}</p>
+                  <p className="text-[10px] text-gray-400">Realizado por: {c.operator?.full_name || 'Operador / Admin'}</p>
                 </div>
-                <span className="text-[11px] text-gray-500">
-                  {new Date(c.cleaning_datetime).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                <span className="text-[11px] text-gray-500 font-medium">
+                  {new Date(c.cleaning_datetime || c.created_at).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' })}
                 </span>
               </div>
             ))}
@@ -266,7 +277,7 @@ export default function KennelPage() {
       {/* Modal Registrar Aseo */}
       {showCleaningModal && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-2xl p-6 space-y-4">
+          <div className="bg-white w-full max-w-md rounded-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto shadow-2xl">
             <h3 className="text-lg font-bold text-gray-900">Registrar Aseo / Limpieza de Canil</h3>
 
             <form onSubmit={handleRegisterCleaning} className="space-y-3">
