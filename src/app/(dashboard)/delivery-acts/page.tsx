@@ -464,16 +464,19 @@ export default function DeliveryActsPage() {
             {/* Printable Official Document Format - Scrollable */}
             <div className="overflow-y-auto flex-1 my-3 pr-1 space-y-5 border border-gray-300 rounded-xl p-5 bg-white text-xs text-gray-900 shadow-inner font-sans">
               {/* Document Header */}
-              <div className="flex items-center justify-between border-b-2 border-gray-900 pb-4">
-                <div>
-                  <h2 className="text-sm font-black text-gray-900 uppercase tracking-wide">
-                    SERVICIO DE CONTROL Y MITIGACIÓN DE FAUNA AEROPORTUARIA
-                  </h2>
-                  <p className="text-[11px] text-gray-600 font-semibold">
-                    Unidad de Gestión de Fauna y Tenencia Responsable
-                  </p>
+              <div className="flex items-center justify-between border-b-2 border-gray-900 pb-4 gap-4">
+                <div className="flex items-center gap-3">
+                  <img src="/logos/LOGO MINERQUIM.jpg" alt="Grupo Minerquim" className="h-12 object-contain" />
+                  <div>
+                    <h2 className="text-xs sm:text-sm font-black text-gray-900 uppercase tracking-wide">
+                      SERVICIO DE CONTROL Y MITIGACIÓN DE FAUNA AEROPORTUARIA
+                    </h2>
+                    <p className="text-[11px] text-gray-600 font-semibold">
+                      Unidad de Gestión de Fauna y Tenencia Responsable | Grupo Minerquim
+                    </p>
+                  </div>
                 </div>
-                <div className="text-right">
+                <div className="text-right flex-shrink-0">
                   <span className="inline-block px-3 py-1 bg-blue-100 text-blue-900 font-black text-sm rounded-lg border border-blue-200">
                     {selectedPreviewAct?.act_number || 'ACT-2026-MODELO'}
                   </span>
@@ -537,12 +540,10 @@ export default function DeliveryActsPage() {
                 const receiverNameFormatted = selectedPreviewAct ? toTitleCase(selectedPreviewAct.receiver_name) : 'Nombre Receptor'
 
                 return (
-                  <div className="pt-8 grid grid-cols-2 gap-8 text-center text-[11px]">
+                  <div className="pt-10 grid grid-cols-2 gap-8 text-center text-[11px]">
                     <div className="space-y-1">
-                      <div className="border-b border-gray-400 w-48 mx-auto h-12 flex items-end justify-center pb-1">
-                        <span className="text-[10px] text-gray-400 italic">(Firma Digital / Manuscrita)</span>
-                      </div>
-                      <p className="font-bold">FIRMA ENTREGANTE</p>
+                      <div className="border-b border-gray-400 w-48 mx-auto h-10"></div>
+                      <p className="font-bold pt-1">FIRMA ENTREGANTE</p>
                       <p className="text-[10px] text-gray-800 font-bold">{deliveringName}</p>
                       <p className="text-[9px] text-gray-600 font-medium">
                         Servicio Control de Fauna Aeroportuaria{deliveringRut}
@@ -550,10 +551,8 @@ export default function DeliveryActsPage() {
                     </div>
 
                     <div className="space-y-1">
-                      <div className="border-b border-gray-400 w-48 mx-auto h-12 flex items-end justify-center pb-1">
-                        <span className="text-[10px] text-gray-400 italic">(Firma Digital / Manuscrita)</span>
-                      </div>
-                      <p className="font-bold">FIRMA RECEPTOR</p>
+                      <div className="border-b border-gray-400 w-48 mx-auto h-10"></div>
+                      <p className="font-bold pt-1">FIRMA RECEPTOR</p>
                       <p className="text-[10px] text-gray-800 font-bold">{receiverNameFormatted}</p>
                       <p className="text-[9px] text-gray-600 font-medium">
                         RUT: {selectedPreviewAct?.receiver_rut || 'RUT Receptor'}
