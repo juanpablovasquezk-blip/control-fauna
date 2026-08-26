@@ -394,7 +394,7 @@ export default function DeliveryActsPage() {
                   className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs"
                 >
                   <option value="">-- Seleccionar Animal Capturado --</option>
-                  {animals.map(a => (
+                  {animals.filter(a => !a.animal_status || a.animal_status === 'En canil').map(a => (
                     <option key={a.id} value={a.id}>{a.species} - {a.color_features || 'Sin color'} ({a.sex})</option>
                   ))}
                 </select>

@@ -15,6 +15,7 @@ export async function getDeliveryActsDataAction() {
       .from('animal_records')
       .select('*, event:events(*, client:clients(*))')
       .eq('was_captured', true)
+      .eq('animal_status', 'En canil')
 
     if (animalErr) throw animalErr
 
