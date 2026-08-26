@@ -465,13 +465,13 @@ export default function DeliveryActsPage() {
             <div className="overflow-y-auto flex-1 my-3 pr-1 space-y-5 border border-gray-300 rounded-xl p-5 bg-white text-xs text-gray-900 shadow-inner font-sans">
               {/* Document Header */}
               <div className="flex items-center justify-between border-b-2 border-gray-900 pb-4 gap-4">
-                <div className="flex items-center gap-3">
-                  <img src="/logos/LOGO MINERQUIM.jpg" alt="Grupo Minerquim" className="h-12 object-contain" />
-                  <div>
-                    <h2 className="text-xs sm:text-sm font-black text-gray-900 uppercase tracking-wide">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <img src="/logos/LOGO MINERQUIM.jpg" alt="Grupo Minerquim" className="w-[2cm] max-w-[20%] h-auto object-contain flex-shrink-0" />
+                  <div className="min-w-0">
+                    <h2 className="text-xs sm:text-sm font-black text-gray-900 uppercase tracking-wide leading-tight">
                       SERVICIO DE CONTROL Y MITIGACIÓN DE FAUNA AEROPORTUARIA
                     </h2>
-                    <p className="text-[11px] text-gray-600 font-semibold">
+                    <p className="text-[10px] text-gray-600 font-semibold mt-0.5">
                       Unidad de Gestión de Fauna y Tenencia Responsable | Grupo Minerquim
                     </p>
                   </div>
