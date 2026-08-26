@@ -183,6 +183,11 @@ export default function KennelPage() {
       fetchKennelData()
       alert('Aseo de canil registrado correctamente y vinculado a los animales presentes.')
     } catch (err: any) {
+      if (err?.message?.includes('Server Action') || err?.message?.includes('was not found')) {
+        alert('Se ha actualizado la plataforma a una nueva versión. La página se recargará automáticamente para aplicar la actualización.')
+        window.location.reload()
+        return
+      }
       alert('Error registrando aseo: ' + err.message)
     } finally {
       setSaving(false)
