@@ -72,6 +72,7 @@ export async function createDeliveryActAction(actData: {
   receiver_phone: string
   receiver_email: string
   observations: string
+  created_at?: string
 }) {
   try {
     const { data, error } = await supabaseAdmin

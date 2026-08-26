@@ -34,6 +34,8 @@ export default function DeliveryActsPage() {
   const [observations, setObservations] = useState('')
   const [operators, setOperators] = useState<any[]>([])
   const [deliveringUserId, setDeliveringUserId] = useState('')
+  const [actDate, setActDate] = useState('')
+  const [actTime, setActTime] = useState('')
   const [saving, setSaving] = useState(false)
 
   const isAdminOrSuper = profile && ['admin', 'supervisor'].includes(profile.role)
@@ -75,6 +77,7 @@ export default function DeliveryActsPage() {
   }
 
   const openNewActModal = () => {
+    const now = new Date()
     setAnimalId('')
     setClientId('')
     setReceiverName('')
@@ -85,6 +88,8 @@ export default function DeliveryActsPage() {
     setReceiverEmail('')
     setObservations('')
     setDeliveringUserId(isAdminOrSuper ? '' : (profile?.id || ''))
+    setActDate(now.toISOString().slice(0, 10))
+    setActTime(now.toTimeString().slice(0, 5))
     setShowModal(true)
   }
 
@@ -106,7 +111,16 @@ export default function DeliveryActsPage() {
     setSaving(true)
 
     try {
-      const actNumber = `ACT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`
+      const cleanActDate = actDate || new Date().toISOString().slice(0, 10)
+      const cleanActTime = (actTime || '12:00').slice(0, 5)
+      let deliveryTimestamp = new Date().toISOString()
+      try {
+        deliveryTimestamp = new Date(`${cleanActDate}T${cleanActTime}:00`).toISOString()
+      } catch {
+        deliveryTimestamp = new Date().toISOString()
+      }
+
+      const actNumber = `ACT-${cleanActDate.replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`
       const selectedAnimal = animals.find(a => a.id === animalId) as any
       const targetClientId = selectedAnimal?.event?.client_id || clientId || clients[0]?.id
 
@@ -115,14 +129,15 @@ export default function DeliveryActsPage() {
         event_id: selectedAnimal?.event_id || animalId,
         client_id: targetClientId,
         animal_id: animalId,
-        capture_datetime: new Date().toISOString(),
+        capture_datetime: selectedAnimal?.created_at || deliveryTimestamp,
         capture_location: 'Área Aeroportuaria',
         species: selectedAnimal?.species || 'Perro',
         sex: selectedAnimal?.sex || 'Indeterminado',
         size: selectedAnimal?.size || 'Mediano',
         color_features: selectedAnimal?.color_features || '',
         apparent_age: selectedAnimal?.apparent_age || 'Adulto',
-        delivery_datetime: new Date().toISOString(),
+        delivery_datetime: deliveryTimestamp,
+        created_at: deliveryTimestamp,
         delivering_user: finalDeliveringUser,
         receiver_name: receiverName,
         receiver_rut: receiverRut,
@@ -136,19 +151,22 @@ export default function DeliveryActsPage() {
       if (!res.success) throw new Error(res.error)
 
       // Trigger WhatsApp notification (asynchronous & silent)
-      const selectedClient = clients.find(c => c.id === clientId)
+      const selectedClient = clients.find(c => c.id === targetClientId)
       const selectedOp = operators.find(op => op.id === finalDeliveringUser)
+
       sendDeliveryActWhatsAppAlert({
         act_number: actNumber,
-        client_name: selectedClient?.name || 'Cliente',
+        client_name: selectedClient?.name || 'DGAC',
         receiver_name: receiverName,
         receiver_rut: receiverRut,
         species: selectedAnimal?.species || 'Perro',
         sex: selectedAnimal?.sex || 'Indeterminado',
         color_features: selectedAnimal?.color_features,
-        delivering_user_name: selectedOp?.full_name || profile?.full_name,
+        delivering_user_name: selectedOp?.full_name || profile.full_name,
+        event_date: cleanActDate,
+        notice_time: cleanActTime,
         client_group_id: selectedClient?.whatsapp_group_id,
-      }).catch(err => console.warn('Delivery act WhatsApp error:', err))
+      }).catch(err => console.warn('Delivery Act WhatsApp alert error:', err))
 
       setShowModal(false)
       fetchActsData()
@@ -318,19 +336,44 @@ export default function DeliveryActsPage() {
 
             <form onSubmit={handleCreateAct} className="space-y-3">
               {isAdminOrSuper && (
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Operador / Usuario que Entrega *</label>
-                  <select
-                    value={deliveringUserId}
-                    onChange={(e) => setDeliveringUserId(e.target.value)}
-                    className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs font-semibold"
-                  >
-                    <option value="">-- Seleccionar Operador --</option>
-                    {operators.map(op => (
-                      <option key={op.id} value={op.id}>{op.full_name} ({op.role})</option>
-                    ))}
-                  </select>
-                </div>
+                <>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Operador / Usuario que Entrega *</label>
+                    <select
+                      value={deliveringUserId}
+                      onChange={(e) => setDeliveringUserId(e.target.value)}
+                      className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs font-semibold"
+                    >
+                      <option value="">-- Seleccionar Operador --</option>
+                      {operators.map(op => (
+                        <option key={op.id} value={op.id}>{op.full_name} ({op.role})</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 bg-blue-50/60 p-2.5 rounded-xl border border-blue-200">
+                    <div>
+                      <label className="block text-[11px] font-bold text-blue-900 mb-1">📅 Fecha de Entrega *</label>
+                      <input
+                        type="date"
+                        required
+                        value={actDate}
+                        onChange={(e) => setActDate(e.target.value)}
+                        className="w-full p-2 bg-white border border-blue-300 rounded text-xs font-semibold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-blue-900 mb-1">⏰ Hora de Entrega *</label>
+                      <input
+                        type="time"
+                        required
+                        value={actTime}
+                        onChange={(e) => setActTime(e.target.value)}
+                        className="w-full p-2 bg-white border border-blue-300 rounded text-xs font-semibold"
+                      />
+                    </div>
+                  </div>
+                </>
               )}
 
               <div>

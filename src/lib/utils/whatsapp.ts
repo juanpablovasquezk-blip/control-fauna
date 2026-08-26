@@ -334,6 +334,8 @@ export async function sendDeliveryActWhatsAppAlert(params: {
   sex: string
   color_features?: string
   delivering_user_name?: string
+  event_date?: string
+  notice_time?: string
   client_group_id?: string
 }) {
   const colorStr = params.color_features ? formatFreeText(params.color_features) : 'Sin señas'
@@ -344,7 +346,7 @@ export async function sendDeliveryActWhatsAppAlert(params: {
     `• *Can:* ${params.species} ${params.sex} (${colorStr})`,
     `• *Receptor:* ${formatFreeText(params.receiver_name)} (${params.receiver_rut})`,
     params.delivering_user_name ? `• *Entregado por:* ${formatFreeText(params.delivering_user_name)}` : null,
-    `• *Fecha/Hora:* ${formatDateTime()}`,
+    `• *Fecha/Hora:* ${formatDateTime(params.event_date, params.notice_time)}`,
   ]
     .filter(Boolean)
     .join('\n')
