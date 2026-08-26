@@ -1601,9 +1601,10 @@ export default function EventsPage() {
       {/* MODAL 5: RECEPCIÓN EXTERNA DE ANIMAL                         */}
       {/* ------------------------------------------------------------- */}
       {showHandoverModal && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white w-full max-w-2xl rounded-2xl p-6 space-y-5 shadow-2xl my-8">
-            <div className="flex items-start justify-between border-b border-gray-100 pb-3">
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden my-auto">
+            {/* Header (Sticky) */}
+            <div className="flex items-start justify-between border-b border-gray-100 p-4 sm:p-5 shrink-0 bg-white">
               <div>
                 <div className="flex items-center gap-2">
                   <UserCheck className="w-6 h-6 text-purple-600" />
@@ -1613,283 +1614,287 @@ export default function EventsPage() {
                   Registro de animales capturados y entregados por otras entidades (SSEI, SAG, etc.).
                 </p>
               </div>
-              <button onClick={() => setShowHandoverModal(false)} className="text-gray-400 hover:text-gray-600">
+              <button onClick={() => setShowHandoverModal(false)} className="text-gray-400 hover:text-gray-600 p-1">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleCreateExternalHandover} className="space-y-4 text-xs">
-              {/* Banner Informativo */}
-              <div className="p-3 bg-purple-50 rounded-xl border border-purple-200 text-purple-900 text-[11px] leading-relaxed">
-                ℹ️ <strong>Información:</strong> Este formulario registrará automáticamente la intervención como <strong>procedimiento cerrado</strong> y pondrá al animal bajo custodia inmediata en el <strong>canil</strong>.
-              </div>
-
-              {/* SECCIÓN 1: FECHA Y HORA DE RECEPCIÓN */}
-              <div className="bg-gray-50 p-3.5 rounded-xl border border-gray-200 space-y-2">
-                <span className="block font-bold text-gray-800 uppercase tracking-wider text-[10px]">1. Fecha y Hora de Recepción</span>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block font-semibold text-gray-700 mb-1">Fecha de Recepción *</label>
-                    <input
-                      type="date"
-                      required
-                      value={handoverDate}
-                      onChange={(e) => setHandoverDate(e.target.value)}
-                      className="w-full p-2.5 bg-white border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-purple-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-semibold text-gray-700 mb-1">Hora de Recepción *</label>
-                    <input
-                      type="time"
-                      required
-                      value={handoverTime}
-                      onChange={(e) => setHandoverTime(e.target.value)}
-                      className="w-full p-2.5 bg-white border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-purple-500"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* SECCIÓN 2: CLIENTE Y OPERADOR */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-gray-700 mb-1">Cliente Solicitante *</label>
-                  <select
-                    value={handoverClientId}
-                    onChange={(e) => setHandoverClientId(e.target.value)}
-                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-purple-500"
-                  >
-                    <option value="">-- Seleccionar Cliente --</option>
-                    {clients.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
+            {/* Form Body (Scrollable) */}
+            <form onSubmit={handleCreateExternalHandover} className="flex flex-col flex-1 overflow-hidden">
+              <div className="p-4 sm:p-6 space-y-4 text-xs overflow-y-auto flex-1">
+                {/* Banner Informativo */}
+                <div className="p-3 bg-purple-50 rounded-xl border border-purple-200 text-purple-900 text-[11px] leading-relaxed">
+                  ℹ️ <strong>Información:</strong> Este formulario registrará automáticamente la intervención como <strong>procedimiento cerrado</strong> y pondrá al animal bajo custodia inmediata en el <strong>canil</strong>.
                 </div>
 
-                {isAdminOrSuper && (
+                {/* SECCIÓN 1: FECHA Y HORA DE RECEPCIÓN */}
+                <div className="bg-gray-50 p-3.5 rounded-xl border border-gray-200 space-y-2">
+                  <span className="block font-bold text-gray-800 uppercase tracking-wider text-[10px]">1. Fecha y Hora de Recepción</span>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-semibold text-gray-700 mb-1">Fecha de Recepción *</label>
+                      <input
+                        type="date"
+                        required
+                        value={handoverDate}
+                        onChange={(e) => setHandoverDate(e.target.value)}
+                        className="w-full p-2.5 bg-white border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-purple-500 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-gray-700 mb-1">Hora de Recepción *</label>
+                      <input
+                        type="time"
+                        required
+                        value={handoverTime}
+                        onChange={(e) => setHandoverTime(e.target.value)}
+                        className="w-full p-2.5 bg-white border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-purple-500 text-xs"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* SECCIÓN 2: CLIENTE Y OPERADOR */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block font-bold text-gray-700 mb-1">Operador Receptor *</label>
+                    <label className="block font-bold text-gray-700 mb-1">Cliente Solicitante *</label>
                     <select
-                      value={handoverOperatorId}
-                      onChange={(e) => setHandoverOperatorId(e.target.value)}
-                      className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-bold text-gray-800 focus:ring-2 focus:ring-purple-500"
+                      value={handoverClientId}
+                      onChange={(e) => setHandoverClientId(e.target.value)}
+                      className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-purple-500 text-xs"
                     >
-                      <option value="">-- Seleccionar Operador --</option>
-                      {operators.map((op: any) => (
-                        <option key={op.id} value={op.id}>
-                          {op.full_name} ({op.role?.toUpperCase() || 'OPERADOR'})
-                        </option>
+                      <option value="">-- Seleccionar Cliente --</option>
+                      {clients.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
                       ))}
                     </select>
                   </div>
-                )}
-              </div>
 
-              {/* SECCIÓN 3: ENTIDAD Y PERSONA QUE ENTREGA */}
-              <div className="bg-purple-50/50 p-3.5 rounded-xl border border-purple-100 space-y-3">
-                <span className="block font-bold text-purple-900 uppercase tracking-wider text-[10px]">2. Identificación del Entregante</span>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block font-bold text-gray-700 mb-1">Entidad / Institución que Entrega *</label>
-                    <input
-                      type="text"
-                      required
-                      value={handoverEntity}
-                      onChange={(e) => setHandoverEntity(e.target.value)}
-                      onBlur={() => setHandoverEntity(formatFreeText(handoverEntity))}
-                      placeholder="Ej: SSEI, SAG, Seguridad Aeroportuaria"
-                      className="w-full p-2.5 bg-white border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-purple-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-bold text-gray-700 mb-1">Nombre de la Persona que Entrega *</label>
-                    <input
-                      type="text"
-                      required
-                      value={handoverPersonName}
-                      onChange={(e) => setHandoverPersonName(e.target.value)}
-                      onBlur={() => setHandoverPersonName(formatFreeText(handoverPersonName))}
-                      placeholder="Ej: Felipe Antonio Soto González"
-                      className="w-full p-2.5 bg-white border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-purple-500"
-                    />
-                  </div>
-                </div>
-
-                {/* Foto Credencial / TICA */}
-                <div>
-                  <label className="block font-bold text-gray-700 mb-1 flex items-center gap-1">
-                    <Camera className="w-3.5 h-3.5 text-purple-600" />
-                    <span>Foto Credencial / TICA del Entregante *</span>
-                  </label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleHandoverIdFileChange}
-                    className="w-full text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-purple-100 file:text-purple-800 hover:file:bg-purple-200 cursor-pointer"
-                  />
-                  {handoverIdPreview && (
-                    <div className="relative mt-2 w-48 h-32 rounded-xl overflow-hidden border border-purple-300 shadow-sm">
-                      <img src={handoverIdPreview} alt="Foto Credencial" className="w-full h-full object-cover" />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setHandoverIdFile(null)
-                          setHandoverIdPreview(null)
-                        }}
-                        className="absolute top-1.5 right-1.5 bg-red-600 text-white text-xs w-6 h-6 rounded-full flex items-center justify-center font-bold shadow"
+                  {isAdminOrSuper && (
+                    <div>
+                      <label className="block font-bold text-gray-700 mb-1">Operador Receptor *</label>
+                      <select
+                        value={handoverOperatorId}
+                        onChange={(e) => setHandoverOperatorId(e.target.value)}
+                        className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-bold text-gray-800 focus:ring-2 focus:ring-purple-500 text-xs"
                       >
-                        ✕
-                      </button>
+                        <option value="">-- Seleccionar Operador --</option>
+                        {operators.map((op: any) => (
+                          <option key={op.id} value={op.id}>
+                            {op.full_name} ({op.role?.toUpperCase() || 'OPERADOR'})
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   )}
                 </div>
-              </div>
 
-              {/* SECCIÓN 4: DATOS DEL ANIMAL */}
-              <div className="bg-orange-50/40 p-3.5 rounded-xl border border-orange-100 space-y-3">
-                <span className="block font-bold text-orange-900 uppercase tracking-wider text-[10px] flex items-center gap-1">
-                  <Dog className="w-3.5 h-3.5 text-orange-600" />
-                  <span>3. Datos del Animal Entregado</span>
-                </span>
-
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  <div>
-                    <label className="block font-bold text-gray-700 mb-1">Especie *</label>
-                    <select
-                      value={handoverSpecies}
-                      onChange={(e: any) => setHandoverSpecies(e.target.value)}
-                      className="w-full p-2.5 bg-white border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-orange-500"
-                    >
-                      <option value="Perro">Perro</option>
-                      <option value="Gato">Gato</option>
-                      <option value="Murciélago">Murciélago</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block font-bold text-gray-700 mb-1">Sexo *</label>
-                    <select
-                      value={handoverSex}
-                      onChange={(e: any) => setHandoverSex(e.target.value)}
-                      className="w-full p-2.5 bg-white border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-orange-500"
-                    >
-                      <option value="Macho">Macho</option>
-                      <option value="Hembra">Hembra</option>
-                      <option value="Indeterminado">Indeterminado</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block font-bold text-gray-700 mb-1">Tamaño *</label>
-                    <select
-                      value={handoverSize}
-                      onChange={(e: any) => setHandoverSize(e.target.value)}
-                      className="w-full p-2.5 bg-white border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-orange-500"
-                    >
-                      <option value="Pequeño">Pequeño</option>
-                      <option value="Mediano">Mediano</option>
-                      <option value="Grande">Grande</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block font-bold text-gray-700 mb-1">Edad Aparente *</label>
-                    <select
-                      value={handoverAge}
-                      onChange={(e: any) => setHandoverAge(e.target.value)}
-                      className="w-full p-2.5 bg-white border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-orange-500"
-                    >
-                      <option value="Cachorro/juvenil">Cachorro/juvenil</option>
-                      <option value="Adulto">Adulto</option>
-                      <option value="Senior">Senior</option>
-                      <option value="Indeterminada">Indeterminada</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block font-bold text-gray-700 mb-1">Color / Características *</label>
-                  <input
-                    type="text"
-                    required
-                    value={handoverColorFeatures}
-                    onChange={(e) => setHandoverColorFeatures(e.target.value)}
-                    onBlur={() => setHandoverColorFeatures(formatFreeText(handoverColorFeatures))}
-                    placeholder="Ej: Negro pelaje largo, mancha blanca en el pecho"
-                    className="w-full p-2.5 bg-white border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-orange-500"
-                  />
-                </div>
-
-                {/* Foto del Animal */}
-                <div>
-                  <label className="block font-bold text-gray-700 mb-1 flex items-center gap-1">
-                    <Camera className="w-3.5 h-3.5 text-orange-600" />
-                    <span>Foto del Animal *</span>
-                  </label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleHandoverAnimalFileChange}
-                    className="w-full text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-orange-100 file:text-orange-800 hover:file:bg-orange-200 cursor-pointer"
-                  />
-                  {handoverAnimalPreview && (
-                    <div className="relative mt-2 w-48 h-32 rounded-xl overflow-hidden border border-orange-300 shadow-sm">
-                      <img src={handoverAnimalPreview} alt="Foto del Animal" className="w-full h-full object-cover" />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setHandoverAnimalFile(null)
-                          setHandoverAnimalPreview(null)
-                        }}
-                        className="absolute top-1.5 right-1.5 bg-red-600 text-white text-xs w-6 h-6 rounded-full flex items-center justify-center font-bold shadow"
-                      >
-                        ✕
-                      </button>
+                {/* SECCIÓN 3: ENTIDAD Y PERSONA QUE ENTREGA */}
+                <div className="bg-purple-50/50 p-3.5 rounded-xl border border-purple-100 space-y-3">
+                  <span className="block font-bold text-purple-900 uppercase tracking-wider text-[10px]">2. Identificación del Entregante</span>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-bold text-gray-700 mb-1">Entidad / Institución que Entrega *</label>
+                      <input
+                        type="text"
+                        required
+                        value={handoverEntity}
+                        onChange={(e) => setHandoverEntity(e.target.value)}
+                        onBlur={() => setHandoverEntity(formatFreeText(handoverEntity))}
+                        placeholder="Ej: SSEI, SAG, Seguridad Aeroportuaria"
+                        className="w-full p-2.5 bg-white border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-purple-500 text-xs"
+                      />
                     </div>
-                  )}
+                    <div>
+                      <label className="block font-bold text-gray-700 mb-1">Nombre de la Persona que Entrega *</label>
+                      <input
+                        type="text"
+                        required
+                        value={handoverPersonName}
+                        onChange={(e) => setHandoverPersonName(e.target.value)}
+                        onBlur={() => setHandoverPersonName(formatFreeText(handoverPersonName))}
+                        placeholder="Ej: Felipe Antonio Soto González"
+                        className="w-full p-2.5 bg-white border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-purple-500 text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Foto Credencial / TICA */}
+                  <div>
+                    <label className="block font-bold text-gray-700 mb-1 flex items-center gap-1">
+                      <Camera className="w-3.5 h-3.5 text-purple-600" />
+                      <span>Foto Credencial / TICA del Entregante *</span>
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleHandoverIdFileChange}
+                      className="w-full text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-purple-100 file:text-purple-800 hover:file:bg-purple-200 cursor-pointer"
+                    />
+                    {handoverIdPreview && (
+                      <div className="relative mt-2 w-48 h-32 rounded-xl overflow-hidden border border-purple-300 shadow-sm">
+                        <img src={handoverIdPreview} alt="Foto Credencial" className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setHandoverIdFile(null)
+                            setHandoverIdPreview(null)
+                          }}
+                          className="absolute top-1.5 right-1.5 bg-red-600 text-white text-xs w-6 h-6 rounded-full flex items-center justify-center font-bold shadow"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* SECCIÓN 4: DATOS DEL ANIMAL */}
+                <div className="bg-orange-50/40 p-3.5 rounded-xl border border-orange-100 space-y-3">
+                  <span className="block font-bold text-orange-900 uppercase tracking-wider text-[10px] flex items-center gap-1">
+                    <Dog className="w-3.5 h-3.5 text-orange-600" />
+                    <span>3. Datos del Animal Entregado</span>
+                  </span>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div>
+                      <label className="block font-bold text-gray-700 mb-1">Especie *</label>
+                      <select
+                        value={handoverSpecies}
+                        onChange={(e: any) => setHandoverSpecies(e.target.value)}
+                        className="w-full p-2.5 bg-white border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-orange-500 text-xs"
+                      >
+                        <option value="Perro">Perro</option>
+                        <option value="Gato">Gato</option>
+                        <option value="Murciélago">Murciélago</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block font-bold text-gray-700 mb-1">Sexo *</label>
+                      <select
+                        value={handoverSex}
+                        onChange={(e: any) => setHandoverSex(e.target.value)}
+                        className="w-full p-2.5 bg-white border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-orange-500 text-xs"
+                      >
+                        <option value="Macho">Macho</option>
+                        <option value="Hembra">Hembra</option>
+                        <option value="Indeterminado">Indeterminado</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block font-bold text-gray-700 mb-1">Tamaño *</label>
+                      <select
+                        value={handoverSize}
+                        onChange={(e: any) => setHandoverSize(e.target.value)}
+                        className="w-full p-2.5 bg-white border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-orange-500 text-xs"
+                      >
+                        <option value="Pequeño">Pequeño</option>
+                        <option value="Mediano">Mediano</option>
+                        <option value="Grande">Grande</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block font-bold text-gray-700 mb-1">Edad Aparente *</label>
+                      <select
+                        value={handoverAge}
+                        onChange={(e: any) => setHandoverAge(e.target.value)}
+                        className="w-full p-2.5 bg-white border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-orange-500 text-xs"
+                      >
+                        <option value="Cachorro/juvenil">Cachorro/juvenil</option>
+                        <option value="Adulto">Adulto</option>
+                        <option value="Senior">Senior</option>
+                        <option value="Indeterminada">Indeterminada</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-gray-700 mb-1">Color / Características *</label>
+                    <input
+                      type="text"
+                      required
+                      value={handoverColorFeatures}
+                      onChange={(e) => setHandoverColorFeatures(e.target.value)}
+                      onBlur={() => setHandoverColorFeatures(formatFreeText(handoverColorFeatures))}
+                      placeholder="Ej: Negro pelaje largo, mancha blanca en el pecho"
+                      className="w-full p-2.5 bg-white border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-orange-500 text-xs"
+                    />
+                  </div>
+
+                  {/* Foto del Animal */}
+                  <div>
+                    <label className="block font-bold text-gray-700 mb-1 flex items-center gap-1">
+                      <Camera className="w-3.5 h-3.5 text-orange-600" />
+                      <span>Foto del Animal *</span>
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleHandoverAnimalFileChange}
+                      className="w-full text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-orange-100 file:text-orange-800 hover:file:bg-orange-200 cursor-pointer"
+                    />
+                    {handoverAnimalPreview && (
+                      <div className="relative mt-2 w-48 h-32 rounded-xl overflow-hidden border border-orange-300 shadow-sm">
+                        <img src={handoverAnimalPreview} alt="Foto del Animal" className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setHandoverAnimalFile(null)
+                            setHandoverAnimalPreview(null)
+                          }}
+                          className="absolute top-1.5 right-1.5 bg-red-600 text-white text-xs w-6 h-6 rounded-full flex items-center justify-center font-bold shadow"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* SECCIÓN 5: UBICACIÓN Y OBSERVACIONES */}
+                <div className="space-y-3">
+                  <div>
+                    <label className="block font-bold text-gray-700 mb-1">Lugar de Captura Original / Referencia *</label>
+                    <input
+                      type="text"
+                      required
+                      value={handoverLocation}
+                      onChange={(e) => setHandoverLocation(e.target.value)}
+                      onBlur={() => setHandoverLocation(formatFreeText(handoverLocation))}
+                      placeholder="Ej: Cercanía de Cuartel Principal SSEI"
+                      className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-purple-500 text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-gray-700 mb-1">Zona del Aeródromo *</label>
+                    <select
+                      value={handoverZone}
+                      onChange={(e) => setHandoverZone(e.target.value)}
+                      className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-purple-500 text-xs"
+                    >
+                      {zones.map((z) => (
+                        <option key={z.id} value={z.name}>{z.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-gray-700 mb-1">Observaciones Adicionales</label>
+                    <textarea
+                      rows={2}
+                      value={handoverObs}
+                      onChange={(e) => setHandoverObs(e.target.value)}
+                      placeholder="Ej: Se le entregó agua y comida al ingresar al canil..."
+                      className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-purple-500 text-xs"
+                    />
+                  </div>
                 </div>
               </div>
 
-              {/* SECCIÓN 5: UBICACIÓN Y OBSERVACIONES */}
-              <div className="space-y-3">
-                <div>
-                  <label className="block font-bold text-gray-700 mb-1">Lugar de Captura Original / Referencia *</label>
-                  <input
-                    type="text"
-                    required
-                    value={handoverLocation}
-                    onChange={(e) => setHandoverLocation(e.target.value)}
-                    onBlur={() => setHandoverLocation(formatFreeText(handoverLocation))}
-                    placeholder="Ej: Cercanía de Cuartel Principal SSEI"
-                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-purple-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-gray-700 mb-1">Zona del Aeródromo *</label>
-                  <select
-                    value={handoverZone}
-                    onChange={(e) => setHandoverZone(e.target.value)}
-                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-purple-500"
-                  >
-                    {zones.map((z) => (
-                      <option key={z.id} value={z.name}>{z.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block font-bold text-gray-700 mb-1">Observaciones Adicionales</label>
-                  <textarea
-                    rows={2}
-                    value={handoverObs}
-                    onChange={(e) => setHandoverObs(e.target.value)}
-                    placeholder="Ej: Se le entregó agua y comida al ingresar al canil..."
-                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-purple-500"
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
+              {/* Fixed Footer Buttons */}
+              <div className="p-4 sm:p-5 border-t border-gray-100 flex justify-end gap-2 shrink-0 bg-white">
                 <button
                   type="button"
                   onClick={() => setShowHandoverModal(false)}
