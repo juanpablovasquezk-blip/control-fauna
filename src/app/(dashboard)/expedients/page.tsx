@@ -5,9 +5,9 @@ import { createClient } from '@/lib/supabase/client'
 import { 
   FileText, CheckCircle2, AlertCircle, Search, Calendar, 
   Filter, FileSpreadsheet, ChevronDown, ChevronUp, Clock, 
-  Dog, Award, CheckCircle, AlertTriangle
+  Dog, Award, CheckCircle, AlertTriangle, Trash2
 } from 'lucide-react'
-import { getExpedientsDataAction } from './actions'
+import { getExpedientsDataAction, deleteExpedientAction } from './actions'
 
 const MONTHS_CONFIG = [
   { value: '12', name: 'Diciembre' },
@@ -110,6 +110,18 @@ export default function ExpedientsPage() {
       ...prev,
       [monthVal]: !prev[monthVal]
     }))
+  }
+
+  const handleDeleteExpedient = async (animalId: string, expCode: string) => {
+    if (!confirm(`¿Está seguro de que desea eliminar el expediente ${expCode}? Esta acción borrará la ficha del animal y sus registros asociados.`)) return
+    try {
+      const res = await deleteExpedientAction(animalId)
+      if (!res.success) throw new Error(res.error)
+      alert(`Expediente ${expCode} eliminado con éxito.`)
+      fetchExpedients()
+    } catch (err: any) {
+      alert('Error al eliminar expediente: ' + err.message)
+    }
   }
 
   // Calculate checklist items for any animal
@@ -523,15 +535,27 @@ export default function ExpedientsPage() {
                                     </div>
                                   </td>
                                   <td className="p-3 text-right">
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        setSelectedAnimal(a)
-                                      }}
-                                      className="px-3 py-1 bg-orange-100 hover:bg-orange-200 text-orange-800 font-bold text-[11px] rounded-lg transition cursor-pointer"
-                                    >
-                                      👁️ Auditar
-                                    </button>
+                                    <div className="flex items-center justify-end gap-1.5">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          setSelectedAnimal(a)
+                                        }}
+                                        className="px-3 py-1 bg-orange-100 hover:bg-orange-200 text-orange-800 font-bold text-[11px] rounded-lg transition cursor-pointer flex items-center gap-1"
+                                      >
+                                        <span>👁️ Auditar</span>
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          handleDeleteExpedient(a.id, `EXP-${a.id.slice(0, 8).toUpperCase()}`)
+                                        }}
+                                        className="p-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg border border-red-200 transition cursor-pointer"
+                                        title="Eliminar Expediente de Prueba"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
                                   </td>
                                 </tr>
                               )
