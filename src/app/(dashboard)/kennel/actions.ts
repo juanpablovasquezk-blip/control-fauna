@@ -8,17 +8,25 @@ export async function createKennelCleaningAction(data: {
   observations: string
   photo_url?: string
   active_animal_ids: string[]
+  cleaning_datetime?: string
 }) {
-  const { operator_id, cleaning_type, observations, photo_url, active_animal_ids } = data
+  const { operator_id, cleaning_type, observations, photo_url, active_animal_ids, cleaning_datetime } = data
+
+  const insertPayload: any = {
+    operator_id,
+    cleaning_type,
+    observations,
+    photo_url,
+  }
+
+  if (cleaning_datetime) {
+    insertPayload.cleaning_datetime = cleaning_datetime
+    insertPayload.created_at = cleaning_datetime
+  }
 
   const { data: cleanRes, error: cleanErr } = await supabaseAdmin
     .from('kennel_cleanings')
-    .insert([{
-      operator_id,
-      cleaning_type,
-      observations,
-      photo_url,
-    }])
+    .insert([insertPayload])
     .select()
     .single()
 

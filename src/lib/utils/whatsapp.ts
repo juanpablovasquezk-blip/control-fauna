@@ -388,8 +388,11 @@ export async function sendKennelCleaningWhatsAppAlert(params: {
   animal_count: number
   observations?: string
   photo_url?: string
+  cleaning_date?: string
+  cleaning_time?: string
 }) {
   const obsFormatted = params.observations ? formatFreeText(params.observations) : ''
+  const dateTimeStr = formatDateTime(params.cleaning_date, params.cleaning_time)
 
   const message = [
     `🦴 *ALIMENTACIÓN / LIMPIEZA DE CANIL*`,
@@ -397,7 +400,7 @@ export async function sendKennelCleaningWhatsAppAlert(params: {
     `• *Responsable:* ${formatFreeText(params.operator_name)}`,
     `• *Canes Atendidos:* ${params.animal_count} canes`,
     obsFormatted ? `• *Observaciones:* ${obsFormatted}` : null,
-    `• *Fecha/Hora:* ${formatDateTime()}`,
+    `• *Fecha/Hora:* ${dateTimeStr}`,
   ]
     .filter(Boolean)
     .join('\n')

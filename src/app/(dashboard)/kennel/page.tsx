@@ -33,17 +33,24 @@ export default function KennelPage() {
   const [observations, setObservations] = useState('')
   const [cleaningFile, setCleaningFile] = useState<File | null>(null)
   const [cleaningPreview, setCleaningPreview] = useState<string | null>(null)
+  const [cleaningDate, setCleaningDate] = useState('')
+  const [cleaningTime, setCleaningTime] = useState('')
   const [saving, setSaving] = useState(false)
+
+  const isAdminOrSuper = profile && ['admin', 'supervisor'].includes(profile.role)
 
   useEffect(() => {
     fetchKennelData()
   }, [])
 
   const openCleaningModal = () => {
+    const now = new Date()
     setCleaningType('')
     setObservations('')
     setCleaningFile(null)
     setCleaningPreview(null)
+    setCleaningDate(now.toISOString().slice(0, 10))
+    setCleaningTime(now.toTimeString().slice(0, 5))
     setShowCleaningModal(true)
   }
 
@@ -126,6 +133,15 @@ export default function KennelPage() {
         photoUrl = await uploadImageFile(cleaningFile, 'kennel_cleaning_photos')
       }
 
+      const cleanDate = cleaningDate || new Date().toISOString().slice(0, 10)
+      const cleanTime = (cleaningTime || '12:00').slice(0, 5)
+      let cleaningTimestamp = new Date().toISOString()
+      try {
+        cleaningTimestamp = new Date(`${cleanDate}T${cleanTime}:00`).toISOString()
+      } catch {
+        cleaningTimestamp = new Date().toISOString()
+      }
+
       const activeAnimalIds = activeKennels.map(k => k.animal_id).filter(Boolean)
       const res = await createKennelCleaningAction({
         operator_id: profile.id,
@@ -133,6 +149,7 @@ export default function KennelPage() {
         observations: formatFreeText(observations),
         photo_url: photoUrl,
         active_animal_ids: activeAnimalIds,
+        cleaning_datetime: cleaningTimestamp,
       })
 
       if (!res.success) throw new Error(res.error)
@@ -144,6 +161,8 @@ export default function KennelPage() {
         animal_count: activeKennels.length,
         observations: formatFreeText(observations),
         photo_url: photoUrl,
+        cleaning_date: cleanDate,
+        cleaning_time: cleanTime,
       }).catch(err => console.warn('Kennel cleaning WhatsApp alert error:', err))
 
       setShowCleaningModal(false)
@@ -251,6 +270,31 @@ export default function KennelPage() {
             <h3 className="text-lg font-bold text-gray-900">Registrar Aseo / Limpieza de Canil</h3>
 
             <form onSubmit={handleRegisterCleaning} className="space-y-3">
+              {isAdminOrSuper && (
+                <div className="grid grid-cols-2 gap-2 bg-amber-50/60 p-2.5 rounded-xl border border-amber-200">
+                  <div>
+                    <label className="block text-[11px] font-bold text-amber-900 mb-1">📅 Fecha de Aseo *</label>
+                    <input
+                      type="date"
+                      required
+                      value={cleaningDate}
+                      onChange={(e) => setCleaningDate(e.target.value)}
+                      className="w-full p-2 bg-white border border-amber-300 rounded text-xs font-semibold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-amber-900 mb-1">⏰ Hora de Aseo *</label>
+                    <input
+                      type="time"
+                      required
+                      value={cleaningTime}
+                      onChange={(e) => setCleaningTime(e.target.value)}
+                      className="w-full p-2 bg-white border border-amber-300 rounded text-xs font-semibold"
+                    />
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">Tipo de Aseo / Mantención *</label>
                 <select
