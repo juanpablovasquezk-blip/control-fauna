@@ -6,7 +6,7 @@ import { useAuth } from '@/lib/auth/AuthProvider'
 import { DeliveryAct, Client, AnimalRecord } from '@/types'
 import { FileCheck, Printer, Camera, Plus, FileText, CheckCircle, Eye, X, Trash2 } from 'lucide-react'
 import { createDeliveryActAction, getDeliveryActsDataAction, updateSignedScanAction } from './actions'
-import { formatFreeText } from '@/lib/utils/formatters'
+import { formatFreeText, formatRut } from '@/lib/utils/formatters'
 import { sendDeliveryActWhatsAppAlert } from '@/lib/utils/whatsapp'
 
 const toTitleCase = formatFreeText
@@ -403,14 +403,14 @@ export default function DeliveryActsPage() {
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">RUT Receptor</label>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">RUT Receptor *</label>
                   <input
                     type="text"
                     required
                     value={receiverRut}
-                    onChange={(e) => setReceiverRut(e.target.value)}
+                    onChange={(e) => setReceiverRut(formatRut(e.target.value))}
                     placeholder="12.345.678-9"
-                    className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs"
+                    className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs font-semibold font-mono"
                   />
                 </div>
                 <div>
@@ -594,7 +594,7 @@ export default function DeliveryActsPage() {
                 <h4 className="font-bold text-gray-900 uppercase text-[11px]">3. Datos de la Persona o Agrupación Receptora</h4>
                 <div className="grid grid-cols-2 gap-2 text-[11px]">
                   <p><strong>Nombre Completo:</strong> {toTitleCase(selectedPreviewAct?.receiver_name) || 'Nombre Receptor'}</p>
-                  <p><strong>RUT Receptor:</strong> {selectedPreviewAct?.receiver_rut || '12.345.678-9'}</p>
+                  <p><strong>RUT Receptor:</strong> {formatRut(selectedPreviewAct?.receiver_rut) || '12.345.678-9'}</p>
                   <p><strong>Organización / Refugio:</strong> {toTitleCase(selectedPreviewAct?.receiver_organization) || 'Particular'}</p>
                   <p><strong>Teléfono / Domicilio:</strong> {selectedPreviewAct?.receiver_phone || '+56 9 1234 5678'} | {toTitleCase(selectedPreviewAct?.receiver_address) || 'Dirección de Destino'}</p>
                 </div>
@@ -612,8 +612,9 @@ export default function DeliveryActsPage() {
               {(() => {
                 const deliveringUserObj = operators.find(op => op.id === selectedPreviewAct?.delivering_user)
                 const deliveringName = deliveringUserObj ? toTitleCase(deliveringUserObj.full_name) : 'Nombre Entregante'
-                const deliveringRut = deliveringUserObj?.rut ? `RUT: ${deliveringUserObj.rut}` : 'RUT Entregante'
+                const deliveringRut = deliveringUserObj?.rut ? `RUT: ${formatRut(deliveringUserObj.rut)}` : 'RUT Entregante'
                 const receiverNameFormatted = selectedPreviewAct ? toTitleCase(selectedPreviewAct.receiver_name) : 'Nombre Receptor'
+                const receiverRutFormatted = selectedPreviewAct?.receiver_rut ? formatRut(selectedPreviewAct.receiver_rut) : 'RUT Receptor'
 
                 return (
                   <div className="pt-10 grid grid-cols-2 gap-8 text-center text-[11px]">
@@ -631,7 +632,7 @@ export default function DeliveryActsPage() {
                       <p className="font-bold pt-1">FIRMA RECEPTOR</p>
                       <p className="text-[10px] text-gray-800 font-bold">{receiverNameFormatted}</p>
                       <p className="text-[9px] text-gray-600 font-medium">
-                        RUT: {selectedPreviewAct?.receiver_rut || 'RUT Receptor'}
+                        RUT: {receiverRutFormatted}
                       </p>
                     </div>
                   </div>

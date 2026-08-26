@@ -53,3 +53,21 @@ export function formatFreeText(text: string | null | undefined): string {
 
   return formattedWords.join(' ')
 }
+
+/**
+ * Formatea un RUT chileno a formato estándar XX.XXX.XXX-X (con puntos y guión).
+ */
+export function formatRut(rutStr: string | null | undefined): string {
+  if (!rutStr) return ''
+
+  // Limpiar caracteres no alfanuméricos
+  const cleaned = rutStr.replace(/[^0-9kK]/g, '').toUpperCase()
+  if (!cleaned) return ''
+  if (cleaned.length < 2) return cleaned
+
+  const dv = cleaned.slice(-1)
+  const body = cleaned.slice(0, -1)
+
+  const formattedBody = body.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+  return `${formattedBody}-${dv}`
+}
