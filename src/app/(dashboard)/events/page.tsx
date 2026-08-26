@@ -287,13 +287,15 @@ export default function EventsPage() {
         animal_photo_url: animalPhotoUrl,
       })
 
-      if (!result.success) throw new Error(result.error)
+      if (!result || !result.success) {
+        throw new Error(result?.error || 'No se recibió una respuesta válida del servidor.')
+      }
 
       setShowHandoverModal(false)
       fetchInitialData()
       alert('Recepción externa registrada con éxito. El animal ya se encuentra ingresado en el canil.')
     } catch (err: any) {
-      alert('Error registrando recepción externa: ' + err.message)
+      alert('Error registrando recepción externa: ' + (err?.message || err || 'Error desconocido'))
     } finally {
       setHandoverSaving(false)
     }
