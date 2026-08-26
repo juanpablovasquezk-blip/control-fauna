@@ -7,6 +7,7 @@ import {
   Filter, FileSpreadsheet, ChevronDown, ChevronUp, Clock, 
   Dog, Award, CheckCircle, AlertTriangle
 } from 'lucide-react'
+import { getExpedientsDataAction } from './actions'
 
 const MONTHS_CONFIG = [
   { value: '12', name: 'Diciembre' },
@@ -71,24 +72,12 @@ export default function ExpedientsPage() {
 
   async function fetchExpedients() {
     setLoading(true)
-    const { data: animalData } = await supabase
-      .from('animal_records')
-      .select('*, event:events(*, client:clients(*)), delivery_acts(*), adoptions:adoption_records(*)')
-      .order('created_at', { ascending: false })
-
-    const { data: clientData } = await supabase
-      .from('clients')
-      .select('id, name')
-      .order('name')
-
-    const { data: cleaningData } = await supabase
-      .from('kennel_cleanings')
-      .select('id')
-
-    if (cleaningData) setCleaningsCount(cleaningData.length)
-    if (clientData) setClients(clientData)
-
-    if (animalData) {
+    const res = await getExpedientsDataAction()
+    if (res.success) {
+      const animalData = res.animals || []
+      const clientData = res.clients || []
+      setCleaningsCount(res.totalCleanings || 0)
+      setClients(clientData)
       setAnimals(animalData as any[])
 
       // Auto expand logic:

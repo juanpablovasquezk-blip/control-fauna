@@ -62,6 +62,23 @@ export async function getKennelDataAction() {
 
     if (kErr) console.error('Error fetching kennel_records:', kErr)
 
+    // Automatically update status = 'Retirado' for any kennel_record whose animal is no longer 'En canil'
+    const staleKennelRecordIds: string[] = []
+    const activeKennelData = (kennelData || []).filter(k => {
+      const isStillInKennel = !k.animal?.animal_status || k.animal.animal_status === 'En canil'
+      if (!isStillInKennel) {
+        staleKennelRecordIds.push(k.id)
+      }
+      return isStillInKennel
+    })
+
+    if (staleKennelRecordIds.length > 0) {
+      await supabaseAdmin
+        .from('kennel_records')
+        .update({ status: 'Retirado' })
+        .in('id', staleKennelRecordIds)
+    }
+
     // 2. Fetch active animals directly
     const { data: animalData, error: aErr } = await supabaseAdmin
       .from('animal_records')
@@ -95,7 +112,7 @@ export async function getKennelDataAction() {
 
     return {
       success: true,
-      kennelRecords: kennelData || [],
+      kennelRecords: activeKennelData || [],
       animalRecords: animalData || [],
       cleanings: cleaningsWithOperators,
       operators: profilesData || []

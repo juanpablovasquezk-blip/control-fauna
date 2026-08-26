@@ -90,6 +90,16 @@ export async function createDeliveryActAction(actData: {
       .update({ animal_status: nextStatus })
       .eq('id', actData.animal_id)
 
+    // Update kennel_records status to 'Retirado'
+    await supabaseAdmin
+      .from('kennel_records')
+      .update({
+        status: 'Retirado',
+        exit_datetime: actData.delivery_datetime,
+        exit_responsible: actData.delivering_user,
+      })
+      .eq('animal_id', actData.animal_id)
+
     return { success: true, data }
   } catch (err: any) {
     return { success: false, error: err.message }
