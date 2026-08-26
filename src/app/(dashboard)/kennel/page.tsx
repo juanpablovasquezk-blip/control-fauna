@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth/AuthProvider'
 import { KennelRecord, KennelCleaning } from '@/types'
 import { Dog, Sparkles, AlertTriangle, Plus, Clock, CheckCircle2, Camera } from 'lucide-react'
-import { createKennelCleaningAction } from './actions'
+import { createKennelCleaningAction, getKennelDataAction } from './actions'
 import { uploadImageFile } from '@/lib/utils/uploadHelpers'
 import { sendKennelCleaningWhatsAppAlert } from '@/lib/utils/whatsapp'
 import { formatFreeText } from '@/lib/utils/formatters'
@@ -67,30 +67,19 @@ export default function KennelPage() {
 
   async function fetchKennelData() {
     setLoading(true)
-    // 1. Fetch from kennel_records
-    const { data: kennelData } = await supabase
-      .from('kennel_records')
-      .select('*, animal:animal_records(*)')
-      .eq('status', 'En canil')
+    const res = await getKennelDataAction()
+    if (res.success) {
+      const kennelData = res.kennelRecords || []
+      const animalData = res.animalRecords || []
 
-    // 2. Fetch directly from animal_records with status 'En canil' to ensure no animal is missed
-    const { data: animalData } = await supabase
-      .from('animal_records')
-      .select('*')
-      .eq('animal_status', 'En canil')
-      .eq('was_captured', true)
+      const list: KennelRecord[] = []
+      const seenAnimalIds = new Set<string>()
 
-    const list: KennelRecord[] = []
-    const seenAnimalIds = new Set<string>()
-
-    if (kennelData) {
       for (const k of kennelData) {
         if (k.animal_id) seenAnimalIds.add(k.animal_id)
         list.push(k as KennelRecord)
       }
-    }
 
-    if (animalData) {
       for (const a of animalData) {
         if (!seenAnimalIds.has(a.id)) {
           seenAnimalIds.add(a.id)
@@ -105,31 +94,10 @@ export default function KennelPage() {
           } as KennelRecord)
         }
       }
-    }
 
-    setActiveKennels(list)
-
-    // 3. Profiles / Operators
-    const { data: opData } = await supabase.from('profiles').select('*').order('full_name')
-    if (opData) setOperators(opData)
-
-    // 4. Cleaning Logs - Query with graceful fallback
-    let { data: cleaningData, error: cleanErr } = await supabase
-      .from('kennel_cleanings')
-      .select('*, operator:profiles(*)')
-      .order('created_at', { ascending: false })
-
-    if (cleanErr || !cleaningData) {
-      console.warn('Error fetching cleaning logs with operator join, trying fallback query:', cleanErr)
-      const { data: fallbackData } = await supabase
-        .from('kennel_cleanings')
-        .select('*')
-        .order('created_at', { ascending: false })
-      cleaningData = fallbackData as any
-    }
-
-    if (cleaningData) {
-      setCleanings(cleaningData as KennelCleaning[])
+      setActiveKennels(list)
+      setOperators(res.operators || [])
+      setCleanings(res.cleanings as KennelCleaning[])
     }
     setLoading(false)
   }

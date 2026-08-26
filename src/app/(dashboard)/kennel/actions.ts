@@ -51,3 +51,57 @@ export async function createKennelCleaningAction(data: {
 
   return { success: true, data: cleanRes }
 }
+
+export async function getKennelDataAction() {
+  try {
+    // 1. Fetch active kennels with animals
+    const { data: kennelData, error: kErr } = await supabaseAdmin
+      .from('kennel_records')
+      .select('*, animal:animal_records(*)')
+      .eq('status', 'En canil')
+
+    if (kErr) console.error('Error fetching kennel_records:', kErr)
+
+    // 2. Fetch active animals directly
+    const { data: animalData, error: aErr } = await supabaseAdmin
+      .from('animal_records')
+      .select('*')
+      .eq('animal_status', 'En canil')
+      .eq('was_captured', true)
+
+    if (aErr) console.error('Error fetching animal_records:', aErr)
+
+    // 3. Fetch cleanings log
+    const { data: cleaningData, error: cErr } = await supabaseAdmin
+      .from('kennel_cleanings')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (cErr) console.error('Error fetching kennel_cleanings:', cErr)
+
+    // 4. Fetch profiles / operators
+    const { data: profilesData, error: pErr } = await supabaseAdmin
+      .from('profiles')
+      .select('*')
+
+    if (pErr) console.error('Error fetching profiles:', pErr)
+
+    // Map operator profiles to cleanings manually to guarantee 100% data integrity
+    const profilesMap = new Map((profilesData || []).map(p => [p.id, p]))
+    const cleaningsWithOperators = (cleaningData || []).map(c => ({
+      ...c,
+      operator: profilesMap.get(c.operator_id) || null
+    }))
+
+    return {
+      success: true,
+      kennelRecords: kennelData || [],
+      animalRecords: animalData || [],
+      cleanings: cleaningsWithOperators,
+      operators: profilesData || []
+    }
+  } catch (err: any) {
+    console.error('getKennelDataAction error:', err)
+    return { success: false, error: err?.message || 'Error al cargar datos del canil' }
+  }
+}
