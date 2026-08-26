@@ -35,6 +35,8 @@ export default function KennelPage() {
   const [cleaningPreview, setCleaningPreview] = useState<string | null>(null)
   const [cleaningDate, setCleaningDate] = useState('')
   const [cleaningTime, setCleaningTime] = useState('')
+  const [operators, setOperators] = useState<any[]>([])
+  const [operatorId, setOperatorId] = useState('')
   const [saving, setSaving] = useState(false)
 
   const isAdminOrSuper = profile && ['admin', 'supervisor'].includes(profile.role)
@@ -51,6 +53,7 @@ export default function KennelPage() {
     setCleaningPreview(null)
     setCleaningDate(now.toISOString().slice(0, 10))
     setCleaningTime(now.toTimeString().slice(0, 5))
+    setOperatorId(profile?.id || '')
     setShowCleaningModal(true)
   }
 
@@ -106,7 +109,11 @@ export default function KennelPage() {
 
     setActiveKennels(list)
 
-    // 3. Cleaning Logs - Query with graceful fallback
+    // 3. Profiles / Operators
+    const { data: opData } = await supabase.from('profiles').select('*').order('full_name')
+    if (opData) setOperators(opData)
+
+    // 4. Cleaning Logs - Query with graceful fallback
     let { data: cleaningData, error: cleanErr } = await supabase
       .from('kennel_cleanings')
       .select('*, operator:profiles(*)')
@@ -130,6 +137,12 @@ export default function KennelPage() {
   const handleRegisterCleaning = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!profile) return
+
+    const targetOperatorId = isAdminOrSuper && operatorId ? operatorId : profile.id
+    if (!targetOperatorId) {
+      alert('Debe seleccionar el operador o responsable que realiza el aseo.')
+      return
+    }
 
     if (!cleaningType) {
       alert('Debe seleccionar el tipo de aseo.')
@@ -155,7 +168,7 @@ export default function KennelPage() {
 
       const activeAnimalIds = activeKennels.map(k => k.animal_id).filter(Boolean)
       const res = await createKennelCleaningAction({
-        operator_id: profile.id,
+        operator_id: targetOperatorId,
         cleaning_type: cleaningType,
         observations: formatFreeText(observations),
         photo_url: photoUrl,
@@ -169,9 +182,10 @@ export default function KennelPage() {
       }
 
       // Trigger WhatsApp notification (asynchronous & silent)
+      const selectedOp = operators.find(op => op.id === targetOperatorId) || profile
       sendKennelCleaningWhatsAppAlert({
         cleaning_type: cleaningType,
-        operator_name: profile.full_name || 'Operador',
+        operator_name: selectedOp?.full_name || profile.full_name || 'Operador',
         animal_count: activeKennels.length,
         observations: formatFreeText(observations),
         photo_url: photoUrl,
@@ -290,28 +304,44 @@ export default function KennelPage() {
 
             <form onSubmit={handleRegisterCleaning} className="space-y-3">
               {isAdminOrSuper && (
-                <div className="grid grid-cols-2 gap-2 bg-amber-50/60 p-2.5 rounded-xl border border-amber-200">
+                <>
                   <div>
-                    <label className="block text-[11px] font-bold text-amber-900 mb-1">📅 Fecha de Aseo *</label>
-                    <input
-                      type="date"
-                      required
-                      value={cleaningDate}
-                      onChange={(e) => setCleaningDate(e.target.value)}
-                      className="w-full p-2 bg-white border border-amber-300 rounded text-xs font-semibold"
-                    />
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Responsable / Operador que Realiza el Aseo *</label>
+                    <select
+                      value={operatorId}
+                      onChange={(e) => setOperatorId(e.target.value)}
+                      className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs font-semibold"
+                    >
+                      <option value="">-- Seleccionar Responsable --</option>
+                      {operators.map(op => (
+                        <option key={op.id} value={op.id}>{op.full_name} ({op.role})</option>
+                      ))}
+                    </select>
                   </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-amber-900 mb-1">⏰ Hora de Aseo *</label>
-                    <input
-                      type="time"
-                      required
-                      value={cleaningTime}
-                      onChange={(e) => setCleaningTime(e.target.value)}
-                      className="w-full p-2 bg-white border border-amber-300 rounded text-xs font-semibold"
-                    />
+
+                  <div className="grid grid-cols-2 gap-2 bg-amber-50/60 p-2.5 rounded-xl border border-amber-200">
+                    <div>
+                      <label className="block text-[11px] font-bold text-amber-900 mb-1">📅 Fecha de Aseo *</label>
+                      <input
+                        type="date"
+                        required
+                        value={cleaningDate}
+                        onChange={(e) => setCleaningDate(e.target.value)}
+                        className="w-full p-2 bg-white border border-amber-300 rounded text-xs font-semibold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-amber-900 mb-1">⏰ Hora de Aseo *</label>
+                      <input
+                        type="time"
+                        required
+                        value={cleaningTime}
+                        onChange={(e) => setCleaningTime(e.target.value)}
+                        className="w-full p-2 bg-white border border-amber-300 rounded text-xs font-semibold"
+                      />
+                    </div>
                   </div>
-                </div>
+                </>
               )}
 
               <div>
