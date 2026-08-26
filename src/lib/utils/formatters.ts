@@ -13,7 +13,7 @@ export function formatFreeText(text: string | null | undefined): string {
   const uppercaseAcronyms = new Set([
     'SAM', 'DGAC', 'TWY', 'RWY', 'VIP', 'SEI', 'APRON', 'RUT', 'ID', 'SCL',
     'MINERQUIM', 'FFAA', 'K9', 'T1', 'T2', 'P35L', 'P35R', 'P17L', 'P17R',
-    '35L', '35R', '17L', '17R', 'P18', 'P36', 'SAG', 'SEREMI', 'PDI', 'CC'
+    '35L', '35R', '17L', '17R', 'P18', 'P36', 'SAG', 'SEREMI', 'PDI', 'CC', 'SSEI'
   ])
 
   // Palabras conectoras o preposiciones cortas en español (se mantienen en minúsculas salvo si es la 1ª palabra)
@@ -29,23 +29,24 @@ export function formatFreeText(text: string | null | undefined): string {
 
     const upperClean = cleanWord.toUpperCase()
 
-    // Si es un acrónimo conocido o un código alfanumérico (ej: SAM4, 35L, K9, T1)
-    if (
-      uppercaseAcronyms.has(upperClean) ||
-      /^[A-Z]{2,6}\d*$/i.test(cleanWord) ||
-      /^\d+[A-Z]{1,3}$/i.test(cleanWord)
-    ) {
+    // 1. Si es un acrónimo explícito conocido
+    if (uppercaseAcronyms.has(upperClean)) {
+      return word.replace(cleanWord, upperClean)
+    }
+
+    // 2. Si es un código con mezcla de dígitos y letras (ej: 35L, 17R, P35L, K9, A1, B2)
+    if (/^\d+[A-Z]{1,3}$/i.test(cleanWord) || /^[A-Z]+\d+[A-Z]*$/i.test(cleanWord)) {
       return word.replace(cleanWord, upperClean)
     }
 
     const lowerClean = cleanWord.toLowerCase()
 
-    // Preposiciones o conectores en minúsculas (excepto si es la primera palabra del texto)
+    // 3. Preposiciones o conectores en minúsculas (excepto si es la primera palabra del texto)
     if (index > 0 && lowercaseWords.has(lowerClean)) {
       return word.replace(cleanWord, lowerClean)
     }
 
-    // Formato Nombre Propio (Title Case) para palabras estándar
+    // 4. Formato Nombre Propio (Title Case) para palabras estándar
     const capitalized = cleanWord.charAt(0).toUpperCase() + cleanWord.slice(1).toLowerCase()
     return word.replace(cleanWord, capitalized)
   })
