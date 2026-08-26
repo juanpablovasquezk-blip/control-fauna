@@ -481,8 +481,9 @@ export default function EventsPage() {
         specific_location: formattedLocation,
         reported_count: reportedAnimalCount || 1,
         reported_species: reportedSpecies || 'Perro',
-        situation_description: formattedSituation,
+        situation_description: situationDescription,
         operator_name: selectedOperator?.full_name || profile?.full_name,
+        event_date: cleanDate,
         notice_time: cleanTime,
         client_group_id: selectedClient?.whatsapp_group_id,
       }).catch(err => console.warn('WhatsApp alert error:', err))

@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/client'
+import { formatFreeText } from '@/lib/utils/formatters'
 
 export interface WhatsAppConfig {
   enabled: boolean
@@ -51,7 +52,6 @@ export async function sendWhatsAppMessage(params: {
 
     const targetRecipient = params.to || config.default_group_id
     if (!targetRecipient || !targetRecipient.trim()) {
-      // Silent no-op when no recipient is configured
       console.log('No WhatsApp group ID or recipient configured. Skipping message.')
       return { success: false, error: 'No recipient' }
     }
@@ -98,6 +98,28 @@ export async function sendWhatsAppMessage(params: {
   }
 }
 
+// Helper to format DD-MM-YYYY HH:MM
+function formatDateTime(dateStr?: string, timeStr?: string): string {
+  let dateFormatted = ''
+  if (dateStr) {
+    const parts = dateStr.split('T')[0].split('-')
+    if (parts.length === 3) {
+      dateFormatted = `${parts[2]}-${parts[1]}-${parts[0]}`
+    } else {
+      dateFormatted = dateStr
+    }
+  } else {
+    const now = new Date()
+    const day = String(now.getDate()).padStart(2, '0')
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    const year = now.getFullYear()
+    dateFormatted = `${day}-${month}-${year}`
+  }
+
+  const timeFormatted = timeStr || new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })
+  return `${dateFormatted} ${timeFormatted}`
+}
+
 // ----------------------------------------------------------------------------
 // SPECIFIC EVENT ALERT HELPERS
 // ----------------------------------------------------------------------------
@@ -112,20 +134,37 @@ export async function sendActivationWhatsAppAlert(params: {
   reported_species: string
   situation_description?: string
   operator_name?: string
+  event_date?: string
   notice_time?: string
   client_group_id?: string
 }) {
+  const requestedByFormatted = params.requested_by ? formatFreeText(params.requested_by) : ''
+
+  // Include specific_location ONLY if filled and not identical to airport_zone
+  const hasSpecificLocation =
+    params.specific_location &&
+    params.specific_location.trim().length > 0 &&
+    params.specific_location.trim().toLowerCase() !== params.airport_zone.trim().toLowerCase()
+
+  // Omit redundant situation_description if it just repeats the default Divisado(s) string
+  const isDefaultDesc =
+    !params.situation_description ||
+    params.situation_description.startsWith('Divisado(s)') ||
+    params.situation_description.includes(`Divisado(s) ${params.reported_count}`)
+
+  const customObs = isDefaultDesc ? '' : formatFreeText(params.situation_description)
+  const dateTimeStr = formatDateTime(params.event_date, params.notice_time)
+
   const message = [
     `🚨 *ALERTA DE ACTIVACIÓN DE FAUNA*`,
-    `• *Código:* ${params.event_code}`,
-    `• *Cliente:* ${params.client_name}`,
-    params.requested_by ? `• *Solicita:* ${params.requested_by}` : null,
-    `• *Zona:* ${params.airport_zone}`,
-    params.specific_location ? `• *Lugar Específico:* ${params.specific_location}` : null,
-    `• *Aviso:* Divisado(s) ${params.reported_count} ${params.reported_species}(s)`,
-    params.situation_description ? `• *Detalle:* ${params.situation_description}` : null,
-    params.operator_name ? `• *Operador en Terreno:* ${params.operator_name}` : null,
-    `• *Fecha/Hora:* ${new Date().toLocaleDateString('es-CL')} ${params.notice_time || ''}`,
+    `• *Cliente:* ${formatFreeText(params.client_name)}`,
+    requestedByFormatted ? `• *Solicita:* ${requestedByFormatted}` : null,
+    `• *Zona:* ${formatFreeText(params.airport_zone)}`,
+    hasSpecificLocation ? `• *Lugar Específico:* ${formatFreeText(params.specific_location!)}` : null,
+    `• *Aviso:* ${params.reported_count} ${params.reported_species}(s)`,
+    customObs ? `• *Observaciones:* ${customObs}` : null,
+    params.operator_name ? `• *Operador:* ${formatFreeText(params.operator_name)}` : null,
+    `• *Fecha/Hora:* ${dateTimeStr}`,
   ]
     .filter(Boolean)
     .join('\n')
@@ -145,10 +184,10 @@ export async function sendFenceDamageWhatsAppAlert(params: {
 }) {
   const message = [
     `⚠️ *REPORTE DE DAÑO EN REJA PERIMETRAL*`,
-    `• *Procedimiento:* ${params.event_code}`,
-    `• *Ubicación del Daño:* ${params.damage_location}`,
-    `• *Detalle:* ${params.damage_description}`,
+    `• *Ubicación:* ${formatFreeText(params.damage_location)}`,
+    `• *Detalle:* ${formatFreeText(params.damage_description)}`,
     `• *Estado:* Reparado en terreno`,
+    `• *Fecha/Hora:* ${formatDateTime()}`,
   ].join('\n')
 
   return sendWhatsAppMessage({
@@ -168,17 +207,24 @@ export async function sendExternalHandoverWhatsAppAlert(params: {
   color_features?: string
   operator_name?: string
   photo_url?: string
+  event_date?: string
+  notice_time?: string
   client_group_id?: string
 }) {
+  const entityStr = params.handover_entity
+    ? `${formatFreeText(params.handover_entity)}${params.handover_person_name ? ` (${formatFreeText(params.handover_person_name)})` : ''}`
+    : null
+
+  const colorStr = params.color_features ? formatFreeText(params.color_features) : ''
+  const animalDetail = `${params.species} ${params.sex}${colorStr ? ` - ${colorStr}` : ''}`
+
   const message = [
     `🔄 *RECEPCIÓN EXTERNA DE CAN*`,
-    `• *Registro:* ${params.event_code}`,
-    params.handover_entity ? `• *Entregado por:* ${params.handover_entity} (${params.handover_person_name || 'N/I'})` : null,
-    `• *Especie / Sexo:* ${params.species} - ${params.sex}`,
-    `• *Edad Aparente:* ${params.apparent_age}`,
-    params.color_features ? `• *Características:* ${params.color_features}` : null,
-    params.operator_name ? `• *Recibe:* ${params.operator_name}` : null,
-    `• *Fecha:* ${new Date().toLocaleDateString('es-CL')}`,
+    entityStr ? `• *Entregado por:* ${entityStr}` : null,
+    `• *Can:* ${animalDetail}`,
+    `• *Edad:* ${params.apparent_age}`,
+    params.operator_name ? `• *Recibe:* ${formatFreeText(params.operator_name)}` : null,
+    `• *Fecha/Hora:* ${formatDateTime(params.event_date, params.notice_time)}`,
   ]
     .filter(Boolean)
     .join('\n')
@@ -201,14 +247,15 @@ export async function sendDeliveryActWhatsAppAlert(params: {
   delivering_user_name?: string
   client_group_id?: string
 }) {
+  const colorStr = params.color_features ? formatFreeText(params.color_features) : 'Sin señas'
   const message = [
     `📄 *ENTREGA / SALIDA DE CANIL*`,
-    `• *Acta de Entrega N°:* ${params.act_number}`,
-    `• *Cliente:* ${params.client_name}`,
-    `• *Can Entregado:* ${params.species} ${params.sex} (${params.color_features || 'Sin señas'})`,
-    `• *Receptor:* ${params.receiver_name} (${params.receiver_rut})`,
-    params.delivering_user_name ? `• *Entregado por:* ${params.delivering_user_name}` : null,
-    `• *Fecha/Hora:* ${new Date().toLocaleDateString('es-CL')} ${new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}`,
+    `• *Acta N°:* ${params.act_number}`,
+    `• *Cliente:* ${formatFreeText(params.client_name)}`,
+    `• *Can:* ${params.species} ${params.sex} (${colorStr})`,
+    `• *Receptor:* ${formatFreeText(params.receiver_name)} (${params.receiver_rut})`,
+    params.delivering_user_name ? `• *Entregado por:* ${formatFreeText(params.delivering_user_name)}` : null,
+    `• *Fecha/Hora:* ${formatDateTime()}`,
   ]
     .filter(Boolean)
     .join('\n')
@@ -226,14 +273,15 @@ export async function sendRoundWhatsAppAlert(params: {
   status: string
   observations?: string
 }) {
+  const obsFormatted = params.observations ? formatFreeText(params.observations) : ''
+
   const message = [
     `🚗 *RONDA PERIMETRAL REGISTRADA*`,
-    params.round_code ? `• *Código:* ${params.round_code}` : null,
-    `• *Operador:* ${params.operator_name}`,
-    `• *Zona:* ${params.airport_zone}`,
+    `• *Operador:* ${formatFreeText(params.operator_name)}`,
+    `• *Zona:* ${formatFreeText(params.airport_zone)}`,
     `• *Estado:* ${params.status}`,
-    params.observations ? `• *Novedades:* ${params.observations}` : null,
-    `• *Hora:* ${new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}`,
+    obsFormatted ? `• *Novedades:* ${obsFormatted}` : null,
+    `• *Fecha/Hora:* ${formatDateTime()}`,
   ]
     .filter(Boolean)
     .join('\n')
@@ -250,13 +298,15 @@ export async function sendKennelCleaningWhatsAppAlert(params: {
   observations?: string
   photo_url?: string
 }) {
+  const obsFormatted = params.observations ? formatFreeText(params.observations) : ''
+
   const message = [
     `🦴 *ALIMENTACIÓN / LIMPIEZA DE CANIL*`,
     `• *Tipo:* ${params.cleaning_type}`,
-    `• *Responsable:* ${params.operator_name}`,
+    `• *Responsable:* ${formatFreeText(params.operator_name)}`,
     `• *Canes Atendidos:* ${params.animal_count} canes`,
-    params.observations ? `• *Observaciones:* ${params.observations}` : null,
-    `• *Fecha/Hora:* ${new Date().toLocaleDateString('es-CL')} ${new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}`,
+    obsFormatted ? `• *Observaciones:* ${obsFormatted}` : null,
+    `• *Fecha/Hora:* ${formatDateTime()}`,
   ]
     .filter(Boolean)
     .join('\n')
