@@ -535,8 +535,8 @@ export default function DeliveryActsPage() {
               {/* Section 5: Firmas */}
               {(() => {
                 const deliveringUserObj = operators.find(op => op.id === selectedPreviewAct?.delivering_user)
-                const deliveringName = deliveringUserObj ? toTitleCase(deliveringUserObj.full_name) : 'Operador Servicio Control de Fauna'
-                const deliveringRut = deliveringUserObj?.rut ? ` - RUT: ${deliveringUserObj.rut}` : ''
+                const deliveringName = deliveringUserObj ? toTitleCase(deliveringUserObj.full_name) : 'Nombre Entregante'
+                const deliveringRut = deliveringUserObj?.rut ? `RUT: ${deliveringUserObj.rut}` : 'RUT Entregante'
                 const receiverNameFormatted = selectedPreviewAct ? toTitleCase(selectedPreviewAct.receiver_name) : 'Nombre Receptor'
 
                 return (
@@ -546,7 +546,7 @@ export default function DeliveryActsPage() {
                       <p className="font-bold pt-1">FIRMA ENTREGANTE</p>
                       <p className="text-[10px] text-gray-800 font-bold">{deliveringName}</p>
                       <p className="text-[9px] text-gray-600 font-medium">
-                        Servicio Control de Fauna Aeroportuaria{deliveringRut}
+                        {deliveringRut}
                       </p>
                     </div>
 
