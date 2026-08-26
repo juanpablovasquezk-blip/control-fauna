@@ -10,7 +10,8 @@ import {
   createUserAction, updateUserAction, deleteUserAction,
   createClientAction, updateClientAction, deleteClientAction,
   updateClientServicePriceAction,
-  createAirportZoneAction, updateAirportZoneAction, deleteAirportZoneAction
+  createAirportZoneAction, updateAirportZoneAction, deleteAirportZoneAction,
+  getWhatsAppSettingsAction, saveWhatsAppSettingsAction, sendTestWhatsAppAction
 } from './actions'
 
 export default function SettingsPage() {
@@ -25,8 +26,11 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false)
 
   // Integration Config State
-  const [ultramsgToken, setUltramsgToken] = useState('instance1029384756')
-  const [ultramsgInstance, setUltramsgInstance] = useState('instance12345')
+  const [whatsappEnabled, setWhatsappEnabled] = useState(true)
+  const [ultramsgToken, setUltramsgToken] = useState('')
+  const [ultramsgInstance, setUltramsgInstance] = useState('')
+  const [defaultGroupId, setDefaultGroupId] = useState('')
+  const [testingWa, setTestingWa] = useState(false)
 
   // Modals visibility
   const [showUserModal, setShowUserModal] = useState(false)
@@ -94,7 +98,59 @@ export default function SettingsPage() {
     const { data: zoneData } = await supabase.from('airport_zones').select('*').order('name', { ascending: true })
     if (zoneData) setZones(zoneData)
 
+    // WhatsApp Settings
+    const waRes = await getWhatsAppSettingsAction()
+    if (waRes.success && waRes.config) {
+      setWhatsappEnabled(waRes.config.enabled ?? true)
+      setUltramsgInstance(waRes.config.instance_id || '')
+      setUltramsgToken(waRes.config.token || '')
+      setDefaultGroupId(waRes.config.default_group_id || '')
+    }
+
     setLoading(false)
+  }
+
+  const handleSaveWhatsAppConfig = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSaving(true)
+    try {
+      const res = await saveWhatsAppSettingsAction({
+        enabled: whatsappEnabled,
+        instance_id: ultramsgInstance,
+        token: ultramsgToken,
+        default_group_id: defaultGroupId,
+      })
+      if (!res.success) throw new Error(res.error)
+      alert('Configuración de WhatsApp guardada con éxito.')
+    } catch (err: any) {
+      alert('Error al guardar configuración de WhatsApp: ' + err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleTestWhatsApp = async () => {
+    if (!ultramsgInstance || !ultramsgToken || !defaultGroupId) {
+      alert('Debe ingresar Instance ID, Token y el ID del Grupo por Defecto para enviar un mensaje de prueba.')
+      return
+    }
+    setTestingWa(true)
+    try {
+      const res = await sendTestWhatsAppAction({
+        instance_id: ultramsgInstance,
+        token: ultramsgToken,
+        to: defaultGroupId,
+      })
+      if (res.success) {
+        alert('✅ Mensaje de prueba enviado con éxito a WhatsApp!')
+      } else {
+        alert('❌ Error al enviar mensaje de prueba: ' + res.error)
+      }
+    } catch (err: any) {
+      alert('❌ Error de conexión: ' + err.message)
+    } finally {
+      setTestingWa(false)
+    }
   }
 
   // --- USER HANDLERS ---
@@ -578,38 +634,83 @@ export default function SettingsPage() {
 
       {/* Tab 4: Integrations */}
       {activeTab === 'integrations' && (
-        <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-4 max-w-xl">
-          <h3 className="text-sm font-bold text-gray-900 border-b pb-2">Configuración ultramsg (WhatsApp API)</h3>
+        <form onSubmit={handleSaveWhatsAppConfig} className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-4 max-w-xl">
+          <div className="flex items-center justify-between border-b pb-3">
+            <div>
+              <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                <MessageSquare className="w-5 h-5 text-emerald-600" />
+                <span>Configuración UltraMsg (WhatsApp API)</span>
+              </h3>
+              <p className="text-[11px] text-gray-500 mt-0.5">Alertas automáticas a grupos y celulares de guardia</p>
+            </div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={whatsappEnabled}
+                onChange={(e) => setWhatsappEnabled(e.target.checked)}
+                className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500"
+              />
+              <span className="text-xs font-bold text-gray-800">Alertas Activas</span>
+            </label>
+          </div>
 
           <div>
-            <label className="block text-xs font-bold text-gray-700 mb-1">Instance ID</label>
+            <label className="block text-xs font-bold text-gray-700 mb-1">Instance ID de UltraMsg *</label>
             <input
               type="text"
+              required
               value={ultramsgInstance}
               onChange={(e) => setUltramsgInstance(e.target.value)}
-              className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded text-xs text-gray-900"
+              placeholder="Ej: instance12345"
+              className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl text-xs text-gray-900 font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-gray-700 mb-1">Token de Acceso</label>
+            <label className="block text-xs font-bold text-gray-700 mb-1">Token de Acceso de UltraMsg *</label>
             <input
               type="password"
+              required
               value={ultramsgToken}
               onChange={(e) => setUltramsgToken(e.target.value)}
-              className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded text-xs text-gray-900"
+              placeholder="••••••••••••••••"
+              className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl text-xs text-gray-900 font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500"
             />
           </div>
 
-          <div className="pt-2">
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">ID de Grupo / Celular por Defecto (Global) *</label>
+            <input
+              type="text"
+              value={defaultGroupId}
+              onChange={(e) => setDefaultGroupId(e.target.value)}
+              placeholder="Ej: 120363123456789012@g.us o +56912345678"
+              className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl text-xs text-gray-900 font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500"
+            />
+            <p className="text-[10px] text-gray-500 mt-1">
+              Las alertas generales (Rondas, Canil, etc.) y clientes sin grupo exclusivo asignado se enviarán a este ID.
+            </p>
+          </div>
+
+          <div className="pt-3 border-t border-gray-100 flex items-center justify-between">
             <button
-              onClick={() => alert('Configuración de integraciones guardada con éxito.')}
-              className="px-4 py-2 bg-orange-600 text-white text-xs font-bold rounded-lg hover:bg-orange-700"
+              type="button"
+              onClick={handleTestWhatsApp}
+              disabled={testingWa}
+              className="px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold rounded-xl transition flex items-center gap-1.5"
             >
-              Guardar Credenciales Integración
+              <span>{testingWa ? 'Enviando...' : '🧪 Enviar Mensaje de Prueba'}</span>
+            </button>
+
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-5 py-2 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold rounded-xl shadow transition"
+            >
+              {saving ? 'Guardando...' : 'Guardar Configuración WhatsApp'}
             </button>
           </div>
-        </div>
+        </form>
       )}
 
       {/* --- MODAL USUARIO --- */}

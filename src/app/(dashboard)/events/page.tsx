@@ -30,6 +30,11 @@ import {
 
 import { formatFreeText } from '@/lib/utils/formatters'
 import { createExternalHandoverAction } from './actions'
+import { 
+  sendActivationWhatsAppAlert, 
+  sendFenceDamageWhatsAppAlert, 
+  sendExternalHandoverWhatsAppAlert 
+} from '@/lib/utils/whatsapp'
 
 export interface ClosureAnimalForm {
   species: 'Perro' | 'Gato'
@@ -341,6 +346,22 @@ export default function EventsPage() {
         throw new Error(result?.error || 'No se recibió una respuesta válida del servidor.')
       }
 
+      // Trigger WhatsApp notification (asynchronous & silent)
+      const selectedClient = clients.find(c => c.id === handoverClientId)
+      const selectedOperator = operators.find(op => op.id === selectedOpId)
+      sendExternalHandoverWhatsAppAlert({
+        event_code: result.event?.event_code || 'FAU-EXT',
+        handover_entity: formattedEntity,
+        handover_person_name: formattedPerson,
+        species: handoverSpecies,
+        sex: handoverSex,
+        apparent_age: handoverAge,
+        color_features: formattedColor,
+        operator_name: selectedOperator?.full_name || profile?.full_name,
+        photo_url: animalPhotoUrl,
+        client_group_id: selectedClient?.whatsapp_group_id,
+      }).catch(err => console.warn('External handover WhatsApp alert error:', err))
+
       setShowHandoverModal(false)
       fetchInitialData()
       alert('Recepción externa registrada con éxito. El animal ya se encuentra ingresado en el canil.')
@@ -448,6 +469,24 @@ export default function EventsPage() {
       }
 
       if (error) throw error
+
+      // Trigger WhatsApp notification (asynchronous & silent)
+      const selectedClient = clients.find(c => c.id === clientId)
+      const selectedOperator = operators.find(op => op.id === selectedOperatorId)
+      sendActivationWhatsAppAlert({
+        event_code: code,
+        client_name: selectedClient?.name || 'DGAC',
+        requested_by: formattedRequestedBy,
+        airport_zone: airportZone,
+        specific_location: formattedLocation,
+        reported_count: reportedAnimalCount || 1,
+        reported_species: reportedSpecies || 'Perro',
+        situation_description: formattedSituation,
+        operator_name: selectedOperator?.full_name || profile?.full_name,
+        notice_time: cleanTime,
+        client_group_id: selectedClient?.whatsapp_group_id,
+      }).catch(err => console.warn('WhatsApp alert error:', err))
+
       setShowModal(false)
       setRequestedBy('')
       setSpecificLocation('')

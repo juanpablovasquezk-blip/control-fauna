@@ -6,9 +6,10 @@ export async function createKennelCleaningAction(data: {
   operator_id: string
   cleaning_type: string
   observations: string
+  photo_url?: string
   active_animal_ids: string[]
 }) {
-  const { operator_id, cleaning_type, observations, active_animal_ids } = data
+  const { operator_id, cleaning_type, observations, photo_url, active_animal_ids } = data
 
   const { data: cleanRes, error: cleanErr } = await supabaseAdmin
     .from('kennel_cleanings')
@@ -16,6 +17,7 @@ export async function createKennelCleaningAction(data: {
       operator_id,
       cleaning_type,
       observations,
+      photo_url,
     }])
     .select()
     .single()

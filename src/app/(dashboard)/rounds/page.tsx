@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth/AuthProvider'
 import { Round } from '@/types'
 import { Compass, AlertTriangle, Camera, Plus, CheckCircle, Clock, Filter, Calendar, Search, Eye, X, Wrench, User, FileText } from 'lucide-react'
 import { formatFreeText } from '@/lib/utils/formatters'
+import { sendRoundWhatsAppAlert } from '@/lib/utils/whatsapp'
 
 export default function RoundsPage() {
   const [rounds, setRounds] = useState<Round[]>([])
@@ -210,6 +211,16 @@ export default function RoundsPage() {
           email_sent: true,
         })
       }
+
+      // Trigger WhatsApp notification (asynchronous & silent)
+      const selectedOperator = operators.find(op => op.id === selectedOperatorId)
+      sendRoundWhatsAppAlert({
+        round_code: roundData?.round_code || (roundData?.id ? `RND-${roundData.id.slice(0, 6)}` : 'Ronda'),
+        operator_name: selectedOperator?.full_name || profile?.full_name || 'Operador',
+        airport_zone: zone,
+        status: hasFenceIncident ? 'Con Novedad / Daño en Reja' : 'Sin novedades',
+        observations: formatFreeText(observations) || (hasFenceIncident ? formatFreeText(damageDescription) : undefined),
+      }).catch(err => console.warn('Round WhatsApp alert error:', err))
 
       setShowModal(false)
       resetForm()

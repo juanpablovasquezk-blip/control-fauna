@@ -7,6 +7,7 @@ import { DeliveryAct, Client, AnimalRecord } from '@/types'
 import { FileCheck, Printer, Camera, Plus, FileText, CheckCircle, Eye, X, Trash2 } from 'lucide-react'
 import { createDeliveryActAction, getDeliveryActsDataAction, updateSignedScanAction } from './actions'
 import { formatFreeText } from '@/lib/utils/formatters'
+import { sendDeliveryActWhatsAppAlert } from '@/lib/utils/whatsapp'
 
 const toTitleCase = formatFreeText
 
@@ -133,6 +134,21 @@ export default function DeliveryActsPage() {
       })
 
       if (!res.success) throw new Error(res.error)
+
+      // Trigger WhatsApp notification (asynchronous & silent)
+      const selectedClient = clients.find(c => c.id === clientId)
+      const selectedOp = operators.find(op => op.id === finalDeliveringUser)
+      sendDeliveryActWhatsAppAlert({
+        act_number: actNumber,
+        client_name: selectedClient?.name || 'Cliente',
+        receiver_name: receiverName,
+        receiver_rut: receiverRut,
+        species: selectedAnimal?.species || 'Perro',
+        sex: selectedAnimal?.sex || 'Indeterminado',
+        color_features: selectedAnimal?.color_features,
+        delivering_user_name: selectedOp?.full_name || profile?.full_name,
+        client_group_id: selectedClient?.whatsapp_group_id,
+      }).catch(err => console.warn('Delivery act WhatsApp error:', err))
 
       setShowModal(false)
       fetchActsData()

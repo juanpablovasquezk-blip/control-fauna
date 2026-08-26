@@ -4,8 +4,11 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth/AuthProvider'
 import { KennelRecord, KennelCleaning } from '@/types'
-import { Dog, Sparkles, AlertTriangle, Plus, Clock, CheckCircle2 } from 'lucide-react'
+import { Dog, Sparkles, AlertTriangle, Plus, Clock, CheckCircle2, Camera } from 'lucide-react'
 import { createKennelCleaningAction } from './actions'
+import { uploadImageFile } from '@/lib/utils/uploadHelpers'
+import { sendKennelCleaningWhatsAppAlert } from '@/lib/utils/whatsapp'
+import { formatFreeText } from '@/lib/utils/formatters'
 
 export default function KennelPage() {
   const [activeKennels, setActiveKennels] = useState<KennelRecord[]>([])
@@ -18,6 +21,8 @@ export default function KennelPage() {
   // Cleaning Form
   const [cleaningType, setCleaningType] = useState('')
   const [observations, setObservations] = useState('')
+  const [cleaningFile, setCleaningFile] = useState<File | null>(null)
+  const [cleaningPreview, setCleaningPreview] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -27,7 +32,17 @@ export default function KennelPage() {
   const openCleaningModal = () => {
     setCleaningType('')
     setObservations('')
+    setCleaningFile(null)
+    setCleaningPreview(null)
     setShowCleaningModal(true)
+  }
+
+  const handleCleaningFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0]
+      setCleaningFile(file)
+      setCleaningPreview(URL.createObjectURL(file))
+    }
   }
 
   async function fetchKennelData() {
@@ -96,18 +111,35 @@ export default function KennelPage() {
     setSaving(true)
 
     try {
+      let photoUrl = ''
+      if (cleaningFile) {
+        photoUrl = await uploadImageFile(cleaningFile, 'kennel_cleaning_photos')
+      }
+
       const activeAnimalIds = activeKennels.map(k => k.animal_id).filter(Boolean)
       const res = await createKennelCleaningAction({
         operator_id: profile.id,
         cleaning_type: cleaningType,
-        observations,
+        observations: formatFreeText(observations),
+        photo_url: photoUrl,
         active_animal_ids: activeAnimalIds,
       })
 
       if (!res.success) throw new Error(res.error)
 
+      // Trigger WhatsApp notification (asynchronous & silent)
+      sendKennelCleaningWhatsAppAlert({
+        cleaning_type: cleaningType,
+        operator_name: profile.full_name || 'Operador',
+        animal_count: activeKennels.length,
+        observations: formatFreeText(observations),
+        photo_url: photoUrl,
+      }).catch(err => console.warn('Kennel cleaning WhatsApp alert error:', err))
+
       setShowCleaningModal(false)
       setObservations('')
+      setCleaningFile(null)
+      setCleaningPreview(null)
       fetchKennelData()
       alert('Aseo de canil registrado correctamente y vinculado a los animales presentes.')
     } catch (err: any) {
@@ -233,6 +265,28 @@ export default function KennelPage() {
                   placeholder="Detalles sobre el estado del canil y los animales..."
                   className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-xs"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Foto de Respaldo (Alimentación / Limpieza)</label>
+                <div className="flex items-center gap-3">
+                  <label className="flex-1 cursor-pointer flex items-center justify-center gap-2 p-2.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl font-bold text-xs transition">
+                    <Camera className="w-4 h-4 text-amber-600" />
+                    <span>{cleaningFile ? 'Cambiar Foto' : 'Tomar / Adjuntar Foto'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      className="hidden"
+                      onChange={handleCleaningFileChange}
+                    />
+                  </label>
+                </div>
+                {cleaningPreview && (
+                  <div className="mt-2 relative rounded-xl overflow-hidden border border-amber-200">
+                    <img src={cleaningPreview} alt="Vista previa aseo" className="h-28 w-full object-cover" />
+                  </div>
+                )}
               </div>
 
               <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 text-[11px] text-amber-800">

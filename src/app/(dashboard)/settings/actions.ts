@@ -190,3 +190,80 @@ export async function deleteAirportZoneAction(id: string) {
   if (error) return { success: false, error: error.message }
   return { success: true }
 }
+
+export async function getWhatsAppSettingsAction() {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('system_settings')
+      .select('value')
+      .eq('key', 'ultramsg_config')
+      .maybeSingle()
+
+    if (error && error.code !== 'PGRST116') {
+      console.warn('getWhatsAppSettingsAction error:', error)
+    }
+
+    if (data?.value) {
+      return { success: true, config: data.value }
+    }
+  } catch (err: any) {
+    console.warn('getWhatsAppSettingsAction catch:', err)
+  }
+
+  return {
+    success: true,
+    config: {
+      enabled: true,
+      instance_id: '',
+      token: '',
+      default_group_id: '',
+    },
+  }
+}
+
+export async function saveWhatsAppSettingsAction(config: {
+  enabled: boolean
+  instance_id: string
+  token: string
+  default_group_id: string
+}) {
+  const { error } = await supabaseAdmin.from('system_settings').upsert({
+    key: 'ultramsg_config',
+    value: config,
+    updated_at: new Date().toISOString(),
+  })
+
+  if (error) return { success: false, error: error.message }
+  return { success: true }
+}
+
+export async function sendTestWhatsAppAction(params: {
+  instance_id: string
+  token: string
+  to: string
+}) {
+  const { instance_id, token, to } = params
+  if (!instance_id || !token || !to) {
+    return { success: false, error: 'Debe ingresar Instance ID, Token y Grupo/Número de destino.' }
+  }
+
+  try {
+    const endpoint = `https://api.ultramsg.com/${instance_id}/messages/chat`
+    const body = `🧪 *MENSAJE DE PRUEBA CONTROL DE FAUNA*\nLas notificaciones automáticas por WhatsApp se han configurado correctamente.`
+    
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ token, to: to.trim(), body }).toString(),
+    })
+
+    const data = await response.json()
+    if (data && (data.sent === 'true' || data.sent === true || data.id)) {
+      return { success: true }
+    } else {
+      return { success: false, error: data?.error || JSON.stringify(data) }
+    }
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Error de conexión' }
+  }
+}
