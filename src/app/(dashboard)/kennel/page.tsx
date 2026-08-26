@@ -10,6 +10,16 @@ import { uploadImageFile } from '@/lib/utils/uploadHelpers'
 import { sendKennelCleaningWhatsAppAlert } from '@/lib/utils/whatsapp'
 import { formatFreeText } from '@/lib/utils/formatters'
 
+function formatKennelDate(entryDatetime?: string): string {
+  if (!entryDatetime) return ''
+  const cleanStr = entryDatetime.split('T')[0]
+  const parts = cleanStr.split('-')
+  if (parts.length === 3) {
+    return `${parseInt(parts[2], 10)}/${parseInt(parts[1], 10)}/${parts[0]}`
+  }
+  return new Date(entryDatetime).toLocaleDateString()
+}
+
 export default function KennelPage() {
   const [activeKennels, setActiveKennels] = useState<KennelRecord[]>([])
   const [cleanings, setCleanings] = useState<KennelCleaning[]>([])
@@ -190,7 +200,7 @@ export default function KennelPage() {
                   </span>
                   <span className="text-[10px] text-gray-400 flex items-center gap-1">
                     <Clock className="w-3 h-3" />
-                    {new Date(k.entry_datetime).toLocaleDateString()}
+                    {formatKennelDate(k.entry_datetime)}
                   </span>
                 </div>
                 <div className="text-xs space-y-1">

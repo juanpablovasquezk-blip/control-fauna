@@ -564,6 +564,16 @@ export default function EventsPage() {
 
       const photoUrls = photoUrl ? [photoUrl] : []
 
+      const targetEvent = activations.find((a) => a.id === showAnimalModal)
+      const evDate = targetEvent?.event_date || new Date().toISOString().slice(0, 10)
+      const evTime = (targetEvent?.notice_time || '12:00').slice(0, 5)
+      let eventTimestamp = new Date().toISOString()
+      try {
+        eventTimestamp = new Date(`${evDate}T${evTime}:00`).toISOString()
+      } catch {
+        eventTimestamp = new Date().toISOString()
+      }
+
       const { data: animalData, error: animalError } = await supabase
         .from('animal_records')
         .insert({
@@ -576,6 +586,7 @@ export default function EventsPage() {
           was_captured: wasCaptured,
           animal_status: wasCaptured ? 'En canil' : 'Escapó',
           photo_urls: photoUrls,
+          created_at: eventTimestamp,
         })
         .select()
         .single()
@@ -586,6 +597,7 @@ export default function EventsPage() {
         await supabase.from('kennel_records').insert({
           animal_id: animalData.id,
           species: species as any,
+          entry_datetime: eventTimestamp,
           entry_responsible: profile.id,
           status: 'En canil',
         })
@@ -817,6 +829,7 @@ export default function EventsPage() {
               was_captured: true,
               animal_status: 'En canil',
               photo_urls: photoUrls,
+              created_at: closedAtTimestamp,
             })
             .select()
             .single()

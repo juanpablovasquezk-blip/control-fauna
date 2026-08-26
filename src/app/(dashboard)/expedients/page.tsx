@@ -23,6 +23,27 @@ const MONTHS_CONFIG = [
   { value: '01', name: 'Enero' }
 ]
 
+// Helper to get effective capture date (event.event_date takes precedence over created_at)
+function getAnimalCaptureDate(a: any): Date {
+  const dateStr = a.event?.event_date || a.created_at
+  if (!dateStr) return new Date()
+  // Add T12:00:00 if plain YYYY-MM-DD date to avoid UTC timezone shift
+  const cleanStr = typeof dateStr === 'string' && dateStr.length === 10 ? `${dateStr}T12:00:00` : dateStr
+  const d = new Date(cleanStr)
+  return isNaN(d.getTime()) ? new Date() : d
+}
+
+function formatAnimalCaptureDate(a: any): string {
+  const dateStr = a.event?.event_date || a.created_at
+  if (!dateStr) return ''
+  const cleanStr = typeof dateStr === 'string' ? dateStr.split('T')[0] : ''
+  const parts = cleanStr.split('-')
+  if (parts.length === 3) {
+    return `${parts[2]}-${parts[1]}-${parts[0]}`
+  }
+  return new Date(dateStr).toLocaleDateString('es-CL')
+}
+
 export default function ExpedientsPage() {
   const [animals, setAnimals] = useState<any[]>([])
   const [clients, setClients] = useState<any[]>([])
@@ -71,8 +92,6 @@ export default function ExpedientsPage() {
       setAnimals(animalData as any[])
 
       // Auto expand logic:
-      // Current month OR months with pending items -> expanded (collapsed: false)
-      // Otherwise -> collapsed (collapsed: true)
       const currentMonthStr = String(new Date().getMonth() + 1).padStart(2, '0')
       const currentYear = new Date().getFullYear()
 
@@ -80,7 +99,7 @@ export default function ExpedientsPage() {
       
       MONTHS_CONFIG.forEach(m => {
         const monthAnimals = animalData.filter((a: any) => {
-          const d = new Date(a.created_at)
+          const d = getAnimalCaptureDate(a)
           const mStr = String(d.getMonth() + 1).padStart(2, '0')
           return d.getFullYear() === currentYear && mStr === m.value
         })
@@ -88,8 +107,6 @@ export default function ExpedientsPage() {
         const hasPending = monthAnimals.some((a: any) => a.animal_status !== 'Finalizado')
         const isCurrentMonth = m.value === currentMonthStr
 
-        // If it's current month OR has pending items -> EXPANDED (collapsed = false)
-        // Else -> COLLAPSED (collapsed = true)
         initialCollapsedState[m.value] = !(isCurrentMonth || hasPending)
       })
 
@@ -405,7 +422,7 @@ export default function ExpedientsPage() {
         <div className="space-y-4">
           {MONTHS_CONFIG.filter(m => !selectedMonth || m.value === selectedMonth).map(m => {
             const monthAnimals = filteredAnimals.filter(a => {
-              const d = new Date(a.created_at)
+              const d = getAnimalCaptureDate(a)
               const mStr = String(d.getMonth() + 1).padStart(2, '0')
               return mStr === m.value
             })
@@ -481,7 +498,7 @@ export default function ExpedientsPage() {
                                     EXP-{a.id.slice(0, 8).toUpperCase()}
                                   </td>
                                   <td className="p-3 font-medium text-gray-700">
-                                    {new Date(a.created_at).toLocaleDateString('es-CL')}
+                                    {formatAnimalCaptureDate(a)}
                                   </td>
                                   <td className="p-3">
                                     <span className="px-2 py-0.5 bg-gray-100 font-bold text-gray-900 rounded text-[11px]">

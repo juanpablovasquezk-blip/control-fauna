@@ -132,6 +132,7 @@ export async function createExternalHandoverAction(data: CreateExternalHandoverP
           animal_status: 'En canil',
           photo_urls: photoUrls,
           observations: `Entregado por ${handover_entity} (${handover_person_name}).`,
+          created_at: closedAtTimestamp,
         },
       ])
       .select()
