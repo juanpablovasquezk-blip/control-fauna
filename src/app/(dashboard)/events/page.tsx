@@ -99,6 +99,8 @@ export default function EventsPage() {
   const [handoverSaving, setHandoverSaving] = useState(false)
 
   // Closure Form State
+  const [closeDate, setCloseDate] = useState('')
+  const [closeTime, setCloseTime] = useState('')
   const [closureType, setClosureType] = useState<ClosureType | ''>('')
   const [closureObs, setClosureObs] = useState('')
   const [hasFenceDamage, setHasFenceDamage] = useState(false)
@@ -511,6 +513,7 @@ export default function EventsPage() {
   }
 
   const openCloseModal = (event: EventActivation) => {
+    const today = new Date()
     setShowCloseModal(event)
     setClosureType('Captura total')
     setClosureObs('')
@@ -522,6 +525,8 @@ export default function EventsPage() {
     setRepairFile(null)
     setDamagePreview(null)
     setRepairPreview(null)
+    setCloseDate(event.event_date || today.toISOString().slice(0, 10))
+    setCloseTime(today.toTimeString().slice(0, 5))
   }
 
   const handleDamageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -579,12 +584,22 @@ export default function EventsPage() {
         }
       }
 
+      const cleanCloseDate = closeDate || new Date().toISOString().slice(0, 10)
+      const cleanCloseTime = (closeTime || '12:00').slice(0, 5)
+      let closedAtTimestamp = new Date().toISOString()
+      try {
+        closedAtTimestamp = new Date(`${cleanCloseDate}T${cleanCloseTime}:00`).toISOString()
+      } catch {
+        closedAtTimestamp = new Date().toISOString()
+      }
+
       // Base payload using columns guaranteed to exist in schema
       const basePayload: any = {
         status: 'Cerrado',
         general_result: closureType === 'Captura total' || closureType === 'Captura parcial' ? closureType : closureType === 'Abandono' ? 'Animales escaparon' : 'Sin hallazgo',
         observations: formatFreeText(closureObs) || '',
         has_perimeter_damage: hasFenceDamage,
+        end_time: cleanCloseTime,
       }
 
       if (hasFenceDamage) {
@@ -603,7 +618,7 @@ export default function EventsPage() {
         ...basePayload,
         closure_type: closureType,
         closure_observations: formatFreeText(closureObs) || '',
-        closed_at: new Date().toISOString(),
+        closed_at: closedAtTimestamp,
         closed_by: profile.id,
         damage_location: fullLocationString || '',
       }
@@ -1333,139 +1348,171 @@ export default function EventsPage() {
       {/* MODAL 3: CERRAR PROCEDIMIENTO DE INTERVENCIÓN                */}
       {/* ------------------------------------------------------------- */}
       {showCloseModal && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white w-full max-w-lg rounded-2xl p-6 space-y-4 shadow-xl my-8">
-            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden my-auto">
+            {/* Header (Fixed) */}
+            <div className="flex items-center justify-between border-b border-gray-100 p-4 sm:p-5 shrink-0 bg-white">
               <div>
                 <span className="text-[10px] font-black text-orange-600 uppercase tracking-wider">{showCloseModal.event_code}</span>
                 <h3 className="text-base font-bold text-gray-900">Cierre de Procedimiento</h3>
               </div>
-              <button onClick={() => setShowCloseModal(null)} className="text-gray-400 hover:text-gray-600">
+              <button onClick={() => setShowCloseModal(null)} className="text-gray-400 hover:text-gray-600 p-1">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleCloseEventSubmit} className="space-y-4 text-xs">
-              {/* Motivo de cierre */}
-              <div>
-                <label className="block font-bold text-gray-700 mb-1">Motivo de Cierre del Procedimiento *</label>
-                <select
-                  value={closureType}
-                  onChange={(e: any) => setClosureType(e.target.value)}
-                  className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-bold text-gray-800 focus:ring-2 focus:ring-orange-500"
-                >
-                  <option value="">-- Seleccionar Motivo de Cierre --</option>
-                  <option value="Captura total">Captura total (Todos los animales capturados)</option>
-                  <option value="Captura parcial">Captura parcial (Captura de algunos animales)</option>
-                  <option value="Abandono">Abandono (Animales abandonaron el área por su cuenta)</option>
-                  <option value="Sin hallazgo">Sin hallazgo (No se encontraron animales reportados)</option>
-                </select>
-              </div>
-
-              {/* Checkbox Daño en Reja */}
-              <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 space-y-2">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="hasFenceDamageCheck"
-                    checked={hasFenceDamage}
-                    onChange={(e) => setHasFenceDamage(e.target.checked)}
-                    className="w-4 h-4 text-orange-600 rounded focus:ring-orange-500 cursor-pointer"
-                  />
-                  <label htmlFor="hasFenceDamageCheck" className="text-xs font-bold text-amber-900 cursor-pointer flex items-center gap-1.5">
-                    <Wrench className="w-4 h-4 text-amber-700" />
-                    <span>¿Se detectó o reparó daño en la reja / perímetro?</span>
-                  </label>
+            {/* Scrollable Form Body */}
+            <form onSubmit={handleCloseEventSubmit} className="flex flex-col flex-1 overflow-hidden">
+              <div className="p-4 sm:p-6 space-y-4 text-xs overflow-y-auto flex-1">
+                {/* Fecha y Hora de Cierre */}
+                <div className="bg-gray-50 p-3 rounded-xl border border-gray-200 space-y-2">
+                  <span className="block font-bold text-gray-800 uppercase tracking-wider text-[10px]">Fecha y Hora de Cierre del Procedimiento</span>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-semibold text-gray-700 mb-1">Fecha de Cierre *</label>
+                      <input
+                        type="date"
+                        required
+                        value={closeDate}
+                        onChange={(e) => setCloseDate(e.target.value)}
+                        className="w-full p-2.5 bg-white border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-gray-900 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-gray-700 mb-1">Hora de Cierre *</label>
+                      <input
+                        type="time"
+                        required
+                        value={closeTime}
+                        onChange={(e) => setCloseTime(e.target.value)}
+                        className="w-full p-2.5 bg-white border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-gray-900 text-xs"
+                      />
+                    </div>
+                  </div>
                 </div>
 
-                {/* Sub-formulario Daño en Reja (Campos obligatorios si está marcado) */}
-                {hasFenceDamage && (
-                  <div className="pt-2 border-t border-amber-200 space-y-3">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <div>
-                        <label className="block font-bold text-amber-900 mb-1">Zona del Aeródromo (Daño en Reja) *</label>
-                        <select
-                          value={damageZone}
-                          onChange={(e) => setDamageZone(e.target.value)}
-                          className="w-full p-2 bg-white border border-amber-300 rounded-lg text-xs font-medium"
-                        >
-                          {zones.map((z) => (
-                            <option key={z.id} value={z.name}>{z.name}</option>
-                          ))}
-                        </select>
+                {/* Motivo de cierre */}
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">Motivo de Cierre del Procedimiento *</label>
+                  <select
+                    value={closureType}
+                    onChange={(e: any) => setClosureType(e.target.value)}
+                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-bold text-gray-800 focus:ring-2 focus:ring-orange-500"
+                  >
+                    <option value="">-- Seleccionar Motivo de Cierre --</option>
+                    <option value="Captura total">Captura total (Todos los animales capturados)</option>
+                    <option value="Captura parcial">Captura parcial (Captura de algunos animales)</option>
+                    <option value="Abandono">Abandono (Animales abandonaron el área por su cuenta)</option>
+                    <option value="Sin hallazgo">Sin hallazgo (No se encontraron animales reportados)</option>
+                  </select>
+                </div>
+
+                {/* Checkbox Daño en Reja */}
+                <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="hasFenceDamageCheck"
+                      checked={hasFenceDamage}
+                      onChange={(e) => setHasFenceDamage(e.target.checked)}
+                      className="w-4 h-4 text-orange-600 rounded focus:ring-orange-500 cursor-pointer"
+                    />
+                    <label htmlFor="hasFenceDamageCheck" className="text-xs font-bold text-amber-900 cursor-pointer flex items-center gap-1.5">
+                      <Wrench className="w-4 h-4 text-amber-700" />
+                      <span>¿Se detectó o reparó daño en la reja / perímetro?</span>
+                    </label>
+                  </div>
+
+                  {/* Sub-formulario Daño en Reja (Campos obligatorios si está marcado) */}
+                  {hasFenceDamage && (
+                    <div className="pt-2 border-t border-amber-200 space-y-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div>
+                          <label className="block font-bold text-amber-900 mb-1">Zona del Aeródromo (Daño en Reja) *</label>
+                          <select
+                            value={damageZone}
+                            onChange={(e) => setDamageZone(e.target.value)}
+                            className="w-full p-2 bg-white border border-amber-300 rounded-lg text-xs font-medium"
+                          >
+                            {zones.map((z) => (
+                              <option key={z.id} value={z.name}>{z.name}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block font-bold text-amber-900 mb-1">Lugar Específico del Daño *</label>
+                          <input
+                            type="text"
+                            required={hasFenceDamage}
+                            value={damageLocation}
+                            onChange={(e) => setDamageLocation(e.target.value)}
+                            onBlur={() => setDamageLocation(formatFreeText(damageLocation))}
+                            placeholder="Ej: Paño 12, Cerca de Rodaje Alpha"
+                            className="w-full p-2 bg-white border border-amber-300 rounded-lg text-xs"
+                          />
+                        </div>
                       </div>
 
                       <div>
-                        <label className="block font-bold text-amber-900 mb-1">Lugar Específico del Daño *</label>
-                        <input
-                          type="text"
+                        <label className="block font-bold text-amber-900 mb-1">📝 Descripción del Daño y Reparación Realizada *</label>
+                        <textarea
+                          rows={2}
                           required={hasFenceDamage}
-                          value={damageLocation}
-                          onChange={(e) => setDamageLocation(e.target.value)}
-                          onBlur={() => setDamageLocation(formatFreeText(damageLocation))}
-                          placeholder="Ej: Paño 12, Cerca de Rodaje Alpha"
+                          value={damageDescription}
+                          onChange={(e) => setDamageDescription(e.target.value)}
+                          placeholder="Ej: Malla ronzada de 40cm. Se instaló parche con alambre galvanizado."
                           className="w-full p-2 bg-white border border-amber-300 rounded-lg text-xs"
                         />
                       </div>
-                    </div>
 
-                    <div>
-                      <label className="block font-bold text-amber-900 mb-1">📝 Descripción del Daño y Reparación Realizada *</label>
-                      <textarea
-                        rows={2}
-                        required={hasFenceDamage}
-                        value={damageDescription}
-                        onChange={(e) => setDamageDescription(e.target.value)}
-                        placeholder="Ej: Malla ronzada de 40cm. Se instaló parche con alambre galvanizado."
-                        className="w-full p-2 bg-white border border-amber-300 rounded-lg text-xs"
-                      />
-                    </div>
+                      {/* Foto Daño & Foto Reparación */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block font-bold text-amber-900 mb-1">📷 Foto del Daño *</label>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleDamageFileChange}
+                            className="w-full text-[10px] text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-[10px] file:font-semibold file:bg-amber-100 file:text-amber-800"
+                          />
+                          {damagePreview && (
+                            <img src={damagePreview} alt="Daño" className="mt-2 h-20 w-full object-cover rounded-lg border border-amber-300" />
+                          )}
+                        </div>
 
-                    {/* Foto Daño & Foto Reparación */}
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block font-bold text-amber-900 mb-1">📷 Foto del Daño *</label>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleDamageFileChange}
-                          className="w-full text-[10px] text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-[10px] file:font-semibold file:bg-amber-100 file:text-amber-800"
-                        />
-                        {damagePreview && (
-                          <img src={damagePreview} alt="Daño" className="mt-2 h-20 w-full object-cover rounded-lg border border-amber-300" />
-                        )}
-                      </div>
-
-                      <div>
-                        <label className="block font-bold text-amber-900 mb-1">📷 Foto de Reparación *</label>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleRepairFileChange}
-                          className="w-full text-[10px] text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-[10px] file:font-semibold file:bg-amber-100 file:text-amber-800"
-                        />
-                        {repairPreview && (
-                          <img src={repairPreview} alt="Reparación" className="mt-2 h-20 w-full object-cover rounded-lg border border-amber-300" />
-                        )}
+                        <div>
+                          <label className="block font-bold text-amber-900 mb-1">📷 Foto de Reparación *</label>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleRepairFileChange}
+                            className="w-full text-[10px] text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-[10px] file:font-semibold file:bg-amber-100 file:text-amber-800"
+                          />
+                          {repairPreview && (
+                            <img src={repairPreview} alt="Reparación" className="mt-2 h-20 w-full object-cover rounded-lg border border-amber-300" />
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
+
+                {/* Observaciones generales de Cierre */}
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">Observaciones Generales del Cierre</label>
+                  <textarea
+                    rows={3}
+                    value={closureObs}
+                    onChange={(e) => setClosureObs(e.target.value)}
+                    placeholder="Ej: Se realizó búsqueda exhaustiva por 45 min. Sector despejado y seguro."
+                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
               </div>
 
-              {/* Observaciones generales de Cierre */}
-              <div>
-                <label className="block font-bold text-gray-700 mb-1">Observaciones Generales del Cierre</label>
-                <textarea
-                  rows={3}
-                  value={closureObs}
-                  onChange={(e) => setClosureObs(e.target.value)}
-                  placeholder="Ej: Se realizó búsqueda exhaustiva por 45 min. Sector despejado y seguro."
-                  className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-orange-500"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+              {/* Fixed Footer Buttons */}
+              <div className="p-4 sm:p-5 border-t border-gray-100 flex justify-end gap-2 shrink-0 bg-white">
                 <button
                   type="button"
                   onClick={() => setShowCloseModal(null)}
