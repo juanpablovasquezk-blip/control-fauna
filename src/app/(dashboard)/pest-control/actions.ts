@@ -114,6 +114,12 @@ export async function startPestControlShiftAction(params: {
 
     return { success: true, data }
   } catch (err: any) {
+    if (err.message?.includes('started_at') || err.message?.includes('schema cache') || err.code === 'PGRST204') {
+      return { 
+        success: false, 
+        error: 'Debe ejecutar la migración SQL 13 en el Editor SQL de Supabase para agregar las columnas de apertura/cierre de turno. Copie y ejecute el código de supabase/migrations/13_pest_control_shifts.sql' 
+      }
+    }
     return { success: false, error: err.message }
   }
 }
