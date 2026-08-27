@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth/AuthProvider'
 import { Round } from '@/types'
-import { Compass, AlertTriangle, Camera, Plus, CheckCircle, Clock, Filter, Calendar, Search, Eye, X, Wrench, User, FileText } from 'lucide-react'
+import { Compass, AlertTriangle, Camera, Plus, CheckCircle, Clock, Filter, Calendar, Search, Eye, X, Wrench, User, FileText, Trash2 } from 'lucide-react'
 import { formatFreeText } from '@/lib/utils/formatters'
 import { 
   sendRoundWhatsAppAlert,
@@ -13,6 +13,7 @@ import {
 } from '@/lib/utils/whatsapp'
 import { uploadImageFile } from '@/lib/utils/uploadHelpers'
 import { sendFenceDamageEmailAction } from '@/app/(dashboard)/settings/emailActions'
+import { deleteRoundAction } from './actions'
 function formatSafeDate(dateInput: any): string {
   if (!dateInput) return 'Sin fecha'
   try {
@@ -171,6 +172,39 @@ export default function RoundsPage() {
       }
       reader.readAsDataURL(file)
     })
+  }
+
+  const handleDeleteRound = async (id: string, zoneName: string) => {
+    if (!isAdminOrSuper) return
+    if (!confirm(`¿Está seguro de que desea eliminar el registro de ronda en "${zoneName}"? Esta acción eliminará el registro y sus antecedentes.`)) return
+
+    try {
+      const res = await deleteRoundAction(id)
+      if (!res.success) throw new Error(res.error)
+      alert('Registro de ronda eliminado correctamente.')
+      if (showDetailModal?.id === id) setShowDetailModal(null)
+      fetchRounds()
+    } catch (err: any) {
+      alert('Error al eliminar la ronda: ' + (err?.message || 'Error desconocido'))
+    }
+  }
+
+  const handleOpenDetailModal = async (r: Round) => {
+    setShowDetailModal(r)
+
+    // Cargar detalles de incidencia si no están poblados aún
+    if (r.has_fence_incident && (!r.fence_incidents || r.fence_incidents.length === 0)) {
+      const { data: incs } = await supabase
+        .from('fence_incidents')
+        .select('*')
+        .eq('round_id', r.id)
+
+      if (incs && incs.length > 0) {
+        const updated = { ...r, fence_incidents: incs }
+        setShowDetailModal(updated)
+        setRounds(prev => prev.map(item => item.id === r.id ? updated : item))
+      }
+    }
   }
 
   const openNewRoundModal = () => {
@@ -530,7 +564,7 @@ export default function RoundsPage() {
                   return (
                     <tr
                       key={r.id}
-                      onClick={() => setShowDetailModal(r)}
+                      onClick={() => handleOpenDetailModal(r)}
                       className="hover:bg-orange-50/50 cursor-pointer transition"
                     >
                       <td className="p-3 font-semibold text-gray-900">
@@ -566,16 +600,31 @@ export default function RoundsPage() {
                       </td>
 
                       <td className="p-3 text-right">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setShowDetailModal(r)
-                          }}
-                          className="px-3 py-1.5 bg-white border border-gray-300 hover:border-orange-500 hover:text-orange-600 text-gray-700 text-[11px] font-bold rounded-lg shadow-sm transition inline-flex items-center gap-1"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                          <span>Ver Antecedentes</span>
-                        </button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleOpenDetailModal(r)
+                            }}
+                            className="px-3 py-1.5 bg-white border border-gray-300 hover:border-orange-500 hover:text-orange-600 text-gray-700 text-[11px] font-bold rounded-lg shadow-sm transition inline-flex items-center gap-1"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>Ver Antecedentes</span>
+                          </button>
+
+                          {isAdminOrSuper && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleDeleteRound(r.id, r.zone)
+                              }}
+                              title="Eliminar esta ronda e incidencia"
+                              className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition border border-red-100"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   )
@@ -807,12 +856,24 @@ export default function RoundsPage() {
                 </p>
               </div>
 
-              <button
-                onClick={() => setShowDetailModal(null)}
-                className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
-              >
-                <X className="w-6 h-6" />
-              </button>
+              <div className="flex items-center gap-2">
+                {isAdminOrSuper && (
+                  <button
+                    onClick={() => handleDeleteRound(showDetailModal.id, showDetailModal.zone)}
+                    className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-xl transition border border-red-100 flex items-center gap-1 text-xs font-bold"
+                    title="Eliminar esta ronda"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span className="hidden sm:inline">Eliminar</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowDetailModal(null)}
+                  className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
             </div>
 
             {/* Antecedentes de la ronda */}
@@ -824,7 +885,7 @@ export default function RoundsPage() {
                 </h4>
                 <p><strong>Operador:</strong> {showDetailModal.operator?.full_name || 'No registrado'}</p>
                 <p><strong>Zona / Sector:</strong> {showDetailModal.zone}</p>
-                <p><strong>Fecha / Hora:</strong> {new Date(showDetailModal.start_time || showDetailModal.created_at).toLocaleString()}</p>
+                <p><strong>Fecha / Hora:</strong> {formatSafeDate(showDetailModal.start_time || showDetailModal.created_at)}</p>
               </div>
 
               <div className="bg-gray-50 p-4 rounded-xl space-y-2 border border-gray-100">
@@ -839,52 +900,76 @@ export default function RoundsPage() {
             </div>
 
             {/* Detalle de la Incidencia si existe */}
-            {showDetailModal.has_fence_incident && showDetailModal.fence_incidents && showDetailModal.fence_incidents[0] && (
-              <div className="p-4 bg-red-50/60 rounded-xl border border-red-200 space-y-3 text-xs">
-                <h4 className="font-bold text-red-900 uppercase tracking-wider text-[10px] flex items-center gap-1.5">
-                  <Wrench className="w-4 h-4 text-red-600" />
-                  <span>Detalle de Daño y Acción Tomada en Cerco Perimetral</span>
-                </h4>
-
-                <div className="space-y-1.5 text-gray-800">
-                  <p><strong>Descripción del Daño:</strong> {showDetailModal.fence_incidents[0].damage_description}</p>
-                  <p><strong>Acción Tomada:</strong> {showDetailModal.fence_incidents[0].action_taken}</p>
-                  <p>
-                    <strong>Estado Reparación:</strong>{' '}
-                    <span className={showDetailModal.fence_incidents[0].was_repaired ? 'text-emerald-700 font-bold' : 'text-amber-700 font-bold'}>
-                      {showDetailModal.fence_incidents[0].was_repaired ? 'Reparado completamente' : 'Parchado / Pendiente'}
+            {(showDetailModal.has_fence_incident || (showDetailModal.fence_incidents && showDetailModal.fence_incidents.length > 0)) && (
+              <div className="p-4 bg-red-50/70 rounded-2xl border border-red-200 space-y-4 text-xs">
+                <div className="flex items-center justify-between border-b border-red-200 pb-2">
+                  <h4 className="font-bold text-red-900 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                    <Wrench className="w-4 h-4 text-red-600" />
+                    <span>Detalle de Incidencia y Daño en Cerco Perimetral</span>
+                  </h4>
+                  {showDetailModal.fence_incidents && showDetailModal.fence_incidents[0] && (
+                    <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border ${
+                      showDetailModal.fence_incidents[0].was_repaired
+                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                        : 'bg-amber-100 text-amber-900 border-amber-300'
+                    }`}>
+                      {showDetailModal.fence_incidents[0].was_repaired ? 'Reparado Completamente' : 'Parchado / Pendiente'}
                     </span>
-                  </p>
-                </div>
-
-                {/* Fotos del daño / reparación */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                  {showDetailModal.fence_incidents[0].damage_photo_urls && showDetailModal.fence_incidents[0].damage_photo_urls.length > 0 && (
-                    <div>
-                      <p className="font-bold text-gray-700 mb-1">Fotos del Daño:</p>
-                      <div className="flex gap-2">
-                        {showDetailModal.fence_incidents[0].damage_photo_urls.map((url, idx) => (
-                          <a key={idx} href={url} target="_blank" rel="noopener noreferrer">
-                            <img src={url} alt="Daño" className="h-24 w-24 object-cover rounded-lg border border-red-200 hover:opacity-90 transition" />
-                          </a>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {showDetailModal.fence_incidents[0].repair_photo_urls && showDetailModal.fence_incidents[0].repair_photo_urls.length > 0 && (
-                    <div>
-                      <p className="font-bold text-gray-700 mb-1">Fotos de Acción / Reparación:</p>
-                      <div className="flex gap-2">
-                        {showDetailModal.fence_incidents[0].repair_photo_urls.map((url, idx) => (
-                          <a key={idx} href={url} target="_blank" rel="noopener noreferrer">
-                            <img src={url} alt="Reparación" className="h-24 w-24 object-cover rounded-lg border border-emerald-200 hover:opacity-90 transition" />
-                          </a>
-                        ))}
-                      </div>
-                    </div>
                   )}
                 </div>
+
+                {showDetailModal.fence_incidents && showDetailModal.fence_incidents[0] ? (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-white p-3 rounded-xl border border-red-100">
+                      <div>
+                        <span className="font-bold text-gray-500 uppercase text-[9px] block">Descripción del Daño / Orificio:</span>
+                        <p className="font-bold text-red-900 mt-0.5">{showDetailModal.fence_incidents[0].damage_description || 'Sin descripción'}</p>
+                      </div>
+                      <div>
+                        <span className="font-bold text-gray-500 uppercase text-[9px] block">Acción Tomada:</span>
+                        <p className="font-bold text-gray-900 mt-0.5">{showDetailModal.fence_incidents[0].action_taken || 'Sin acción registrada'}</p>
+                      </div>
+                    </div>
+
+                    {/* Fotos del daño */}
+                    {showDetailModal.fence_incidents[0].damage_photo_urls && showDetailModal.fence_incidents[0].damage_photo_urls.length > 0 && (
+                      <div>
+                        <p className="font-bold text-red-900 mb-1.5 flex items-center gap-1">
+                          <Camera className="w-3.5 h-3.5 text-red-600" />
+                          <span>Fotografías del Daño Registrado ({showDetailModal.fence_incidents[0].damage_photo_urls.length}):</span>
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {showDetailModal.fence_incidents[0].damage_photo_urls.map((url, idx) => (
+                            <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="group relative">
+                              <img src={url} alt={`Daño ${idx + 1}`} className="h-28 w-28 object-cover rounded-xl border-2 border-red-200 group-hover:opacity-90 shadow-sm transition" />
+                              <span className="absolute bottom-1 right-1 bg-black/70 text-white text-[9px] px-1.5 py-0.5 rounded font-bold">Ver HD</span>
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Fotos de reparación */}
+                    {showDetailModal.fence_incidents[0].repair_photo_urls && showDetailModal.fence_incidents[0].repair_photo_urls.length > 0 && (
+                      <div>
+                        <p className="font-bold text-emerald-900 mb-1.5 flex items-center gap-1">
+                          <Camera className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Fotografías de Acción / Reparación ({showDetailModal.fence_incidents[0].repair_photo_urls.length}):</span>
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {showDetailModal.fence_incidents[0].repair_photo_urls.map((url, idx) => (
+                            <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="group relative">
+                              <img src={url} alt={`Reparación ${idx + 1}`} className="h-28 w-28 object-cover rounded-xl border-2 border-emerald-200 group-hover:opacity-90 shadow-sm transition" />
+                              <span className="absolute bottom-1 right-1 bg-black/70 text-white text-[9px] px-1.5 py-0.5 rounded font-bold">Ver HD</span>
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-gray-500 italic">No se encontraron detalles asociados a esta incidencia.</p>
+                )}
               </div>
             )}
 
