@@ -4,9 +4,9 @@ import { useState, useEffect, Fragment } from 'react'
 import { useAuth } from '@/lib/auth/AuthProvider'
 import { 
   Bird, Plus, Calendar, AlertCircle, Info, Shield, CheckCircle2, 
-  ChevronDown, ChevronUp, Filter, FileSpreadsheet, CalendarDays
+  ChevronDown, ChevronUp, Filter, FileSpreadsheet, CalendarDays, Trash2
 } from 'lucide-react'
-import { getPestControlDataAction, createPestRecordAction } from './actions'
+import { getPestControlDataAction, createPestRecordAction, deletePestRecordAction } from './actions'
 import { formatFreeText } from '@/lib/utils/formatters'
 
 const PRESET_REASONS = [
@@ -19,12 +19,6 @@ const PRESET_REASONS = [
   'Sin caza, clima nocturno muy frío no apto para cazar',
   'Otro (especificar)'
 ]
-
-function capitalizeSentence(text: string) {
-  if (!text) return ''
-  const trimmed = text.trim()
-  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1)
-}
 
 const MONTHS_CONFIG = [
   { value: '12', name: 'Diciembre' },
@@ -63,7 +57,6 @@ export default function PestControlPage() {
   const [rabbitsMale, setRabbitsMale] = useState(0)
   const [rabbitsFemale, setRabbitsFemale] = useState(0)
   const [pigeons, setPigeons] = useState(0)
-  const [method, setMethod] = useState('')
   const [noHuntingReason, setNoHuntingReason] = useState('')
   const [customReason, setCustomReason] = useState('')
   const [observations, setObservations] = useState('')
@@ -86,14 +79,12 @@ export default function PestControlPage() {
   useEffect(() => {
     const yearRecs = records.filter(r => r.record_date.startsWith(selectedYear.toString()))
     if (yearRecs.length > 0) {
-      // Find the latest month with records in this year
       const uniqueMonths = Array.from(new Set(yearRecs.map((r: any) => r.record_date.substring(0, 7)))) as string[]
       uniqueMonths.sort((a, b) => b.localeCompare(a)) // descending
       
-      const latestMonth = uniqueMonths[0] // e.g. "2026-08"
+      const latestMonth = uniqueMonths[0]
       const initialCollapsed: { [key: string]: boolean } = {}
       
-      // All months collapsed except the latest one with records
       MONTHS_CONFIG.forEach(m => {
         const monthKey = `${selectedYear}-${m.value}`
         initialCollapsed[monthKey] = monthKey !== latestMonth
@@ -118,20 +109,17 @@ export default function PestControlPage() {
       setOperators(res.operators)
       setRecords(res.records)
 
-      // Extract unique sectors from records AND official airport zones
       const recordSectors = res.records.map((r: any) => r.sector)
       const officialZones = res.zones ? res.zones.map((z: any) => z.name) : []
       const combinedSectors = Array.from(new Set([...recordSectors, ...officialZones])).filter(Boolean) as string[]
       setExistingSectors(combinedSectors)
 
-      // Automatically find latest year with data
       const years = Array.from(new Set(res.records.map((r: any) => Number(r.record_date.substring(0, 4))))) as number[]
       if (years.length > 0) {
         years.sort((a, b) => b - a)
         setSelectedYear(years[0])
       }
 
-      // Automatically find DGAC client
       const dgac = res.clients.find((c: any) => c.is_contract_client || c.name.toUpperCase().includes('DGAC')) || res.clients[0]
       if (dgac) {
         setClientId(dgac.id)
@@ -149,7 +137,6 @@ export default function PestControlPage() {
     setCustomReason('')
     setObservations('')
     setSector('')
-    setMethod('')
     const localObj = new Date()
     const offset = localObj.getTimezoneOffset()
     const localDate = new Date(localObj.getTime() - (offset * 60 * 1000))
@@ -164,16 +151,24 @@ export default function PestControlPage() {
 
     const totalAnimals = Number(rabbitsMale) + Number(rabbitsFemale) + Number(pigeons)
 
-    const formattedSector = sector.trim() ? formatFreeText(sector) : (totalAnimals === 0 ? 'General / Sin Caza' : 'Sector General')
+    // Validación 1: Si se cazaron animales (>0), el Sector / Zona es OBLIGATORIO
+    if (totalAnimals > 0) {
+      if (!sector.trim()) {
+        alert('Si la cantidad de animales cazados es mayor a 0, debe ingresar obligatoriamente el Sector / Zona de la caza.')
+        return
+      }
+    }
+
+    // Validación 2: Si 0 animales, el Motivo de No-Caza es OBLIGATORIO
     let finalObservations = observations.trim()
     if (totalAnimals === 0) {
       if (!noHuntingReason) {
-        alert('Si no se realiza caza (0 capturas), debe seleccionar el motivo de no-caza obligatoriamente.')
+        alert('Si no se realiza caza (0 capturas), debe seleccionar obligatoriamente el motivo por el cual no se realizó la caza.')
         return
       }
       if (noHuntingReason === 'Otro (especificar)') {
         if (!customReason.trim()) {
-          alert('Por favor especifique el motivo de no-caza.')
+          alert('Por favor especifique el motivo detallado de no-caza.')
           return
         }
         finalObservations = formatFreeText(customReason) + (observations ? ' | ' + formatFreeText(observations) : '')
@@ -183,6 +178,8 @@ export default function PestControlPage() {
     } else {
       finalObservations = formatFreeText(finalObservations)
     }
+
+    const formattedSector = sector.trim() ? formatFreeText(sector) : 'General / Sin Caza'
 
     setSaving(true)
 
@@ -210,6 +207,24 @@ export default function PestControlPage() {
       alert('Error guardando jornada: ' + err.message)
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleDeleteRecord = async (recordId: string) => {
+    if (!isAdminOrSuper) return
+    const confirmed = window.confirm('¿Está seguro de que desea eliminar esta jornada de caza? Esta acción actualizará los totales de inmediato.')
+    if (!confirmed) return
+
+    try {
+      const res = await deletePestRecordAction(recordId)
+      if (res.success) {
+        alert('Jornada de caza eliminada correctamente.')
+        fetchPestData()
+      } else {
+        alert('Error al eliminar registro: ' + res.error)
+      }
+    } catch (err: any) {
+      alert('Error al eliminar registro: ' + err.message)
     }
   }
 
@@ -276,14 +291,15 @@ export default function PestControlPage() {
     }))
   }
 
-  // Get unique years with data dynamically from records
   const dynamicYearsList = Array.from(
     new Set(records.map(r => Number(r.record_date.substring(0, 4))))
   ).sort((a, b) => b - a)
 
   if (dynamicYearsList.length === 0) {
-    dynamicYearsList.push(2026) // fallback default
+    dynamicYearsList.push(2026)
   }
+
+  const currentTotalAnimals = Number(rabbitsMale) + Number(rabbitsFemale) + Number(pigeons)
 
   return (
     <div className="space-y-6">
@@ -307,7 +323,7 @@ export default function PestControlPage() {
         </button>
       </div>
 
-      {/* Year Selector */}
+      {/* Selector de Año */}
       <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-2 text-xs font-bold text-gray-700">
           <CalendarDays className="w-4 h-4 text-emerald-600" />
@@ -330,7 +346,7 @@ export default function PestControlPage() {
         </div>
       </div>
 
-      {/* Monthly Summary Table */}
+      {/* Tabla Resumen Mensual */}
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="p-4 bg-gray-50 border-b border-gray-200">
           <h2 className="text-sm font-bold text-gray-800 uppercase tracking-wider">
@@ -440,10 +456,25 @@ export default function PestControlPage() {
                                     </p>
                                   </div>
 
-                                  <span className="text-[11px] text-gray-500 flex items-start gap-1 font-semibold whitespace-nowrap mt-0.5">
-                                    <Calendar className="w-3.5 h-3.5 text-gray-400" />
-                                    {formatRecordDate(rec.record_date)}
-                                  </span>
+                                  <div className="flex items-center gap-3 self-start sm:self-center">
+                                    <span className="text-[11px] text-gray-500 flex items-center gap-1 font-semibold whitespace-nowrap">
+                                      <Calendar className="w-3.5 h-3.5 text-gray-400" />
+                                      {formatRecordDate(rec.record_date)}
+                                    </span>
+                                    {isAdminOrSuper && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          handleDeleteRecord(rec.id)
+                                        }}
+                                        title="Eliminar jornada"
+                                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </button>
+                                    )}
+                                  </div>
                                 </div>
                               )
                             })}
@@ -532,24 +563,6 @@ export default function PestControlPage() {
                   </div>
                 )}
 
-                {/* Sector */}
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Sector / Zona (Opcional)</label>
-                  <input
-                    type="text"
-                    value={sector}
-                    onChange={(e) => setSector(e.target.value)}
-                    placeholder="Ej: Pista 17R / Sector Norte"
-                    list="sectors-list"
-                    className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs font-medium"
-                  />
-                  <datalist id="sectors-list">
-                    {existingSectors.map((sec) => (
-                      <option key={sec} value={sec} />
-                    ))}
-                  </datalist>
-                </div>
-
                 {/* Animal Counts */}
                 <div className="grid grid-cols-2 gap-2">
                   <div>
@@ -585,8 +598,29 @@ export default function PestControlPage() {
                   />
                 </div>
 
+                {/* Sector / Zona */}
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                    Sector / Zona {currentTotalAnimals > 0 ? <span className="text-red-600">*</span> : '(Opcional si es 0 capturas)'}
+                  </label>
+                  <input
+                    type="text"
+                    required={currentTotalAnimals > 0}
+                    value={sector}
+                    onChange={(e) => setSector(e.target.value)}
+                    placeholder={currentTotalAnimals > 0 ? "Obligatorio: Ej. Pista 17R / Sector Norte" : "Opcional: Ej. Pista 17R / Sector Norte"}
+                    list="sectors-list"
+                    className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                  <datalist id="sectors-list">
+                    {existingSectors.map((sec) => (
+                      <option key={sec} value={sec} />
+                    ))}
+                  </datalist>
+                </div>
+
                 {/* Motivo de No-Caza (If 0 animals) */}
-                {(Number(rabbitsMale) + Number(rabbitsFemale) + Number(pigeons)) === 0 && (
+                {currentTotalAnimals === 0 && (
                   <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-2">
                     <div className="flex items-center gap-1.5 text-amber-800 font-bold text-xs">
                       <AlertCircle className="w-4 h-4 text-amber-600" />
@@ -597,7 +631,7 @@ export default function PestControlPage() {
                       onChange={(e) => setNoHuntingReason(e.target.value)}
                       className="w-full p-2 bg-white border border-amber-300 rounded text-xs font-medium text-amber-900"
                     >
-                      <option value="">-- Seleccionar motivo --</option>
+                      <option value="">-- Seleccionar motivo obligatorio --</option>
                       {PRESET_REASONS.map(r => (
                         <option key={r} value={r}>{r}</option>
                       ))}

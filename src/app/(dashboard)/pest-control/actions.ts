@@ -86,3 +86,17 @@ export async function createPestRecordAction(recordData: {
     return { success: false, error: err.message }
   }
 }
+
+export async function deletePestRecordAction(recordId: string) {
+  try {
+    const { error } = await supabaseAdmin
+      .from('pest_control_records')
+      .delete()
+      .eq('id', recordId)
+
+    if (error) throw error
+    return { success: true }
+  } catch (err: any) {
+    return { success: false, error: err.message }
+  }
+}
