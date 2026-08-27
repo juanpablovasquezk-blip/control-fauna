@@ -4,9 +4,17 @@ import { useState, useEffect, Fragment } from 'react'
 import { useAuth } from '@/lib/auth/AuthProvider'
 import { 
   Bird, Plus, Calendar, AlertCircle, Info, Shield, CheckCircle2, 
-  ChevronDown, ChevronUp, Filter, FileSpreadsheet, CalendarDays, Trash2
+  ChevronDown, ChevronUp, Filter, FileSpreadsheet, CalendarDays, Trash2,
+  Clock, Play, Square, Timer, AlertOctagon
 } from 'lucide-react'
-import { getPestControlDataAction, createPestRecordAction, deletePestRecordAction } from './actions'
+import { 
+  getPestControlDataAction, 
+  createPestRecordAction, 
+  deletePestRecordAction,
+  startPestControlShiftAction,
+  closePestControlShiftAction,
+  cancelPestControlShiftAction
+} from './actions'
 import { formatFreeText } from '@/lib/utils/formatters'
 
 const PRESET_REASONS = [
@@ -35,13 +43,37 @@ const MONTHS_CONFIG = [
   { value: '01', name: 'Enero' }
 ]
 
+function formatSecondsToHHMMSS(totalSeconds: number): string {
+  if (totalSeconds < 0) totalSeconds = 0
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+
+  const pad = (num: number) => String(num).padStart(2, '0')
+  return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`
+}
+
+function formatMinutesToHoursStr(totalMinutes: number): string {
+  if (!totalMinutes || totalMinutes <= 0) return '0 mins'
+  const hours = Math.floor(totalMinutes / 60)
+  const mins = totalMinutes % 60
+  if (hours === 0) return `${mins} mins`
+  if (mins === 0) return `${hours} hrs`
+  return `${hours}h ${mins}m`
+}
+
 export default function PestControlPage() {
   const [records, setRecords] = useState<any[]>([])
   const [clients, setClients] = useState<any[]>([])
   const [operators, setOperators] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
+  const [showManualModal, setShowManualModal] = useState(false)
   const [existingSectors, setExistingSectors] = useState<string[]>([])
+
+  // Active shift state
+  const [activeShift, setActiveShift] = useState<any | null>(null)
+  const [elapsedSeconds, setElapsedSeconds] = useState(0)
 
   // Year Selection
   const [selectedYear, setSelectedYear] = useState(2026)
@@ -67,6 +99,7 @@ export default function PestControlPage() {
     return localDate.toISOString().split('T')[0]
   })
   const [saving, setSaving] = useState(false)
+  const [startingShift, setStartingShift] = useState(false)
 
   const { profile } = useAuth()
   const isAdminOrSuper = profile && ['admin', 'supervisor'].includes(profile.role)
@@ -75,12 +108,36 @@ export default function PestControlPage() {
     fetchPestData()
   }, [])
 
+  // Timer effect for active shift
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null
+
+    if (activeShift && activeShift.started_at) {
+      const startTime = new Date(activeShift.started_at).getTime()
+      
+      const updateTimer = () => {
+        const now = new Date().getTime()
+        const diffSecs = Math.floor((now - startTime) / 1000)
+        setElapsedSeconds(diffSecs > 0 ? diffSecs : 0)
+      }
+
+      updateTimer()
+      interval = setInterval(updateTimer, 1000)
+    } else {
+      setElapsedSeconds(0)
+    }
+
+    return () => {
+      if (interval) clearInterval(interval)
+    }
+  }, [activeShift])
+
   // Manage default collapsed state when records or year changes
   useEffect(() => {
     const yearRecs = records.filter(r => r.record_date.startsWith(selectedYear.toString()))
     if (yearRecs.length > 0) {
       const uniqueMonths = Array.from(new Set(yearRecs.map((r: any) => r.record_date.substring(0, 7)))) as string[]
-      uniqueMonths.sort((a, b) => b.localeCompare(a)) // descending
+      uniqueMonths.sort((a, b) => b.localeCompare(a))
       
       const latestMonth = uniqueMonths[0]
       const initialCollapsed: { [key: string]: boolean } = {}
@@ -109,6 +166,14 @@ export default function PestControlPage() {
       setOperators(res.operators)
       setRecords(res.records)
 
+      // Find active shift for current user (or any active shift if admin)
+      if (profile) {
+        const currentActive = res.records.find((r: any) => 
+          r.status === 'en_curso' && (r.responsible_id === profile.id || isAdminOrSuper)
+        )
+        setActiveShift(currentActive || null)
+      }
+
       const recordSectors = res.records.map((r: any) => r.sector)
       const officialZones = res.zones ? res.zones.map((z: any) => z.name) : []
       const combinedSectors = Array.from(new Set([...recordSectors, ...officialZones])).filter(Boolean) as string[]
@@ -129,7 +194,29 @@ export default function PestControlPage() {
     setLoading(false)
   }
 
-  const handleOpenModal = () => {
+  // Handle Start Shift (Apertura)
+  const handleStartShift = async () => {
+    if (!profile) return
+    setStartingShift(true)
+    try {
+      const res = await startPestControlShiftAction({
+        client_id: clientId,
+        responsible_id: profile.id
+      })
+
+      if (!res.success) throw new Error(res.error)
+
+      fetchPestData()
+      alert('🎯 Turno de Caza aperturado con éxito. Se envió la notificación de inicio al Grupo de WhatsApp de Caza.')
+    } catch (err: any) {
+      alert('Error al aperturar turno: ' + err.message)
+    } finally {
+      setStartingShift(false)
+    }
+  }
+
+  // Handle Open Close Modal
+  const handleOpenCloseModal = () => {
     setRabbitsMale(0)
     setRabbitsFemale(0)
     setPigeons(0)
@@ -137,21 +224,17 @@ export default function PestControlPage() {
     setCustomReason('')
     setObservations('')
     setSector('')
-    const localObj = new Date()
-    const offset = localObj.getTimezoneOffset()
-    const localDate = new Date(localObj.getTime() - (offset * 60 * 1000))
-    setRecordDate(localDate.toISOString().split('T')[0])
-    if (profile) setResponsibleId(profile.id)
     setShowModal(true)
   }
 
-  const handleCreatePestRecord = async (e: React.FormEvent) => {
+  // Handle Submit Close Shift
+  const handleCloseShiftSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!profile) return
+    if (!activeShift) return
 
     const totalAnimals = Number(rabbitsMale) + Number(rabbitsFemale) + Number(pigeons)
 
-    // Validación 1: Si se cazaron animales (>0), el Sector / Zona es OBLIGATORIO
+    // Validación 1: Si >0 capturas, el Sector / Zona es OBLIGATORIO
     if (totalAnimals > 0) {
       if (!sector.trim()) {
         alert('Si la cantidad de animales cazados es mayor a 0, debe ingresar obligatoriamente el Sector / Zona de la caza.')
@@ -159,7 +242,7 @@ export default function PestControlPage() {
       }
     }
 
-    // Validación 2: Si 0 animales, el Motivo de No-Caza es OBLIGATORIO
+    // Validación 2: Si 0 capturas, el Motivo de No-Caza es OBLIGATORIO
     let finalObservations = observations.trim()
     if (totalAnimals === 0) {
       if (!noHuntingReason) {
@@ -184,27 +267,89 @@ export default function PestControlPage() {
     setSaving(true)
 
     try {
-      const selectedOperatorId = isAdminOrSuper ? (responsibleId || profile.id) : profile.id
-
-      const res = await createPestRecordAction({
-        client_id: clientId,
+      const res = await closePestControlShiftAction({
+        record_id: activeShift.id,
         sector: formattedSector,
         rabbits_male: Number(rabbitsMale),
         rabbits_female: Number(rabbitsFemale),
         pigeons: Number(pigeons),
-        method: 'Estándar',
-        observations: finalObservations,
-        responsible_id: selectedOperatorId,
-        record_date: isAdminOrSuper ? recordDate : new Date().toISOString().split('T')[0]
+        observations: finalObservations
       })
 
       if (!res.success) throw new Error(res.error)
 
       setShowModal(false)
+      setActiveShift(null)
       fetchPestData()
-      alert('Jornada de control de caza registrada correctamente.')
+      alert('🏁 Turno de Caza cerrado y registrado correctamente. Se envió el reporte consolidado al Grupo de WhatsApp de Caza.')
     } catch (err: any) {
-      alert('Error guardando jornada: ' + err.message)
+      alert('Error al cerrar turno: ' + err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Cancel in-progress shift
+  const handleCancelShift = async () => {
+    if (!activeShift) return
+    const confirmed = window.confirm('¿Está seguro de descartar este turno en curso? El registro se eliminará.')
+    if (!confirmed) return
+
+    try {
+      const res = await cancelPestControlShiftAction(activeShift.id)
+      if (res.success) {
+        setActiveShift(null)
+        fetchPestData()
+        alert('Turno en curso descartado.')
+      }
+    } catch (err: any) {
+      alert('Error descartando turno: ' + err.message)
+    }
+  }
+
+  // Handle Manual Historical Entry Submit (Admin)
+  const handleCreateManualRecord = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!profile) return
+
+    const totalAnimals = Number(rabbitsMale) + Number(rabbitsFemale) + Number(pigeons)
+
+    if (totalAnimals > 0 && !sector.trim()) {
+      alert('Si la cantidad de animales es >0, debe ingresar el Sector / Zona.')
+      return
+    }
+
+    let finalObservations = observations.trim()
+    if (totalAnimals === 0) {
+      if (!noHuntingReason) {
+        alert('Debe seleccionar el motivo de no-caza.')
+        return
+      }
+      finalObservations = (noHuntingReason === 'Otro (especificar)' ? customReason : noHuntingReason) + (observations ? ' | ' + observations : '')
+    }
+
+    setSaving(true)
+
+    try {
+      const res = await createPestRecordAction({
+        client_id: clientId,
+        sector: sector.trim() ? formatFreeText(sector) : 'General / Sin Caza',
+        rabbits_male: Number(rabbitsMale),
+        rabbits_female: Number(rabbitsFemale),
+        pigeons: Number(pigeons),
+        method: 'Estándar',
+        observations: finalObservations,
+        responsible_id: isAdminOrSuper ? (responsibleId || profile.id) : profile.id,
+        record_date: recordDate
+      })
+
+      if (!res.success) throw new Error(res.error)
+
+      setShowManualModal(false)
+      fetchPestData()
+      alert('Jornada manual registrada con éxito.')
+    } catch (err: any) {
+      alert('Error: ' + err.message)
     } finally {
       setSaving(false)
     }
@@ -248,10 +393,11 @@ export default function PestControlPage() {
   let annualJornadas = 0
   let annualWithCaza = 0
   let annualWithoutCaza = 0
+  let annualMinutes = 0
 
   const monthlySummaries = MONTHS_CONFIG.map(m => {
     const monthKey = `${selectedYear}-${m.value}`
-    const monthRecords = yearRecords.filter(r => r.record_date.substring(5, 7) === m.value)
+    const monthRecords = yearRecords.filter(r => r.record_date.substring(5, 7) === m.value && r.status !== 'en_curso')
 
     const rMale = monthRecords.reduce((acc, r) => acc + (r.rabbits_male || 0), 0)
     const rFemale = monthRecords.reduce((acc, r) => acc + (r.rabbits_female || 0), 0)
@@ -260,6 +406,7 @@ export default function PestControlPage() {
     const jornadasCount = monthRecords.length
     const withCazaCount = monthRecords.filter(r => (r.rabbits_total + r.pigeons) > 0).length
     const withoutCazaCount = jornadasCount - withCazaCount
+    const totalMins = monthRecords.reduce((acc, r) => acc + (r.duration_minutes || 0), 0)
 
     // Add to annual totals
     annualMale += rMale
@@ -269,6 +416,7 @@ export default function PestControlPage() {
     annualJornadas += jornadasCount
     annualWithCaza += withCazaCount
     annualWithoutCaza += withoutCazaCount
+    annualMinutes += totalMins
 
     return {
       monthKey,
@@ -280,6 +428,7 @@ export default function PestControlPage() {
       jornadasCount,
       withCazaCount,
       withoutCazaCount,
+      totalMins,
       records: monthRecords.sort((a, b) => b.record_date.localeCompare(a.record_date))
     }
   })
@@ -303,25 +452,93 @@ export default function PestControlPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-        <div>
-          <div className="flex items-center gap-2">
-            <Bird className="w-6 h-6 text-emerald-600" />
-            <h1 className="text-xl font-bold text-gray-900">Control de Caza (Conejos y Palomas)</h1>
+      {/* Banner de Control de Turno en Vivo */}
+      {activeShift ? (
+        <div className="bg-gradient-to-r from-emerald-950 via-emerald-900 to-gray-900 rounded-2xl p-5 sm:p-6 text-white shadow-xl border-2 border-emerald-500 relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="flex h-3 w-3 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+              </span>
+              <span className="px-2.5 py-0.5 bg-emerald-500/30 text-emerald-300 font-extrabold text-[10px] uppercase rounded-md tracking-wider border border-emerald-400/40">
+                TURNO DE CAZA EN CURSO
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <Timer className="w-8 h-8 text-emerald-400 animate-pulse flex-shrink-0" />
+              <div>
+                <p className="text-2xl sm:text-3xl font-black text-white font-mono tracking-widest leading-none">
+                  {formatSecondsToHHMMSS(elapsedSeconds)}
+                </p>
+                <p className="text-xs text-emerald-200 mt-1 font-medium">
+                  Operador: <span className="font-bold text-white">{activeShift.responsible?.full_name || profile?.full_name}</span> • Apertura: {new Date(activeShift.started_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })} hrs
+                </p>
+              </div>
+            </div>
           </div>
-          <p className="text-xs text-gray-500 mt-1">
-            Resumen anual y registro de jornadas de control de fauna silvestre y avifauna.
-          </p>
+
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <button
+              onClick={handleOpenCloseModal}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-lg transition transform active:scale-95"
+            >
+              <Square className="w-4 h-4 fill-white" />
+              <span>Cerrar y Registrar Turno</span>
+            </button>
+            <button
+              onClick={handleCancelShift}
+              title="Descartar turno"
+              className="p-3 bg-gray-800 hover:bg-red-900/60 text-gray-300 hover:text-red-300 rounded-xl border border-gray-700 transition"
+            >
+              <AlertOctagon className="w-4 h-4" />
+            </button>
+          </div>
         </div>
-        <button
-          onClick={handleOpenModal}
-          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow transition"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Registrar Jornada de Caza</span>
-        </button>
-      </div>
+      ) : (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
+          <div>
+            <div className="flex items-center gap-2">
+              <Bird className="w-6 h-6 text-emerald-600" />
+              <h1 className="text-xl font-bold text-gray-900">Control de Caza (Conejos y Palomas)</h1>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Apertura y cierre de turnos en vivo con cronómetro de tiempo efectivo de caza.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+            <button
+              onClick={handleStartShift}
+              disabled={startingShift}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow transition"
+            >
+              <Play className="w-4 h-4 fill-white" />
+              <span>{startingShift ? 'Aperturando...' : 'Aperturar Turno de Caza'}</span>
+            </button>
+
+            {isAdminOrSuper && (
+              <button
+                onClick={() => {
+                  setRabbitsMale(0)
+                  setRabbitsFemale(0)
+                  setPigeons(0)
+                  setNoHuntingReason('')
+                  setCustomReason('')
+                  setObservations('')
+                  setSector('')
+                  setShowManualModal(true)
+                }}
+                className="px-3.5 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs rounded-xl transition flex items-center gap-1.5"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline">Ingreso Manual</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Selector de Año */}
       <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -348,10 +565,16 @@ export default function PestControlPage() {
 
       {/* Tabla Resumen Mensual */}
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="p-4 bg-gray-50 border-b border-gray-200">
+        <div className="p-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
           <h2 className="text-sm font-bold text-gray-800 uppercase tracking-wider">
             Resumen Mensual {selectedYear}
           </h2>
+          {annualMinutes > 0 && (
+            <span className="px-3 py-1 bg-emerald-100 text-emerald-800 text-xs font-bold rounded-lg flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Tiempo Efectivo Anual: {formatMinutesToHoursStr(annualMinutes)}</span>
+            </span>
+          )}
         </div>
 
         <div className="overflow-x-auto">
@@ -366,6 +589,7 @@ export default function PestControlPage() {
                 <th className="p-3 text-center">Total Jornadas</th>
                 <th className="p-3 text-center text-emerald-600">Con Caza</th>
                 <th className="p-3 text-center text-amber-600">Sin Caza</th>
+                <th className="p-3 text-center text-indigo-600">Tiempo Efectivo</th>
                 {isAdminOrSuper && <th className="p-3 pr-4 text-center">Evolución</th>}
               </tr>
             </thead>
@@ -381,6 +605,7 @@ export default function PestControlPage() {
                   <td className="p-3 text-center">{annualJornadas}</td>
                   <td className="p-3 text-center text-emerald-700">{annualWithCaza}</td>
                   <td className="p-3 text-center text-amber-700">{annualWithoutCaza}</td>
+                  <td className="p-3 text-center text-indigo-700 font-black">{formatMinutesToHoursStr(annualMinutes)}</td>
                   {isAdminOrSuper && <td className="p-3 pr-4"></td>}
                 </tr>
               )}
@@ -405,6 +630,7 @@ export default function PestControlPage() {
                       <td className="p-3 text-center font-semibold text-gray-700">{hasData ? m.jornadasCount : '-'}</td>
                       <td className="p-3 text-center font-semibold text-emerald-600">{hasData ? m.withCazaCount : '-'}</td>
                       <td className="p-3 text-center font-semibold text-amber-600">{hasData ? m.withoutCazaCount : '-'}</td>
+                      <td className="p-3 text-center font-bold text-indigo-600">{hasData && m.totalMins > 0 ? formatMinutesToHoursStr(m.totalMins) : '-'}</td>
                       {isAdminOrSuper && (
                         <td className="p-3 pr-4 text-center">
                           {hasData && (
@@ -419,10 +645,13 @@ export default function PestControlPage() {
                     {/* Evolución Diaria Expandible (Solo para Admin / Supervisor) */}
                     {isAdminOrSuper && !isCollapsed && hasData && (
                       <tr>
-                        <td colSpan={9} className="p-0 bg-gray-50/50">
+                        <td colSpan={10} className="p-0 bg-gray-50/50">
                           <div className="border-t border-b border-gray-200/80 divide-y divide-gray-100 max-h-[450px] overflow-y-auto">
                             {m.records.map((rec) => {
                               const totalCaptured = (rec.rabbits_total || 0) + (rec.pigeons || 0)
+                              const startTimeStr = rec.started_at ? new Date(rec.started_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }) : null
+                              const endTimeStr = rec.ended_at ? new Date(rec.ended_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }) : null
+
                               return (
                                 <div key={rec.id} className="p-3.5 pl-8 pr-6 hover:bg-white transition flex flex-col sm:flex-row justify-between gap-3 text-xs">
                                   <div className="space-y-1 flex-1">
@@ -436,6 +665,12 @@ export default function PestControlPage() {
                                       ) : (
                                         <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-md flex items-center gap-1">
                                           <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Caza Efectiva
+                                        </span>
+                                      )}
+
+                                      {rec.duration_minutes > 0 && (
+                                        <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 text-[10px] font-bold rounded-md flex items-center gap-1 border border-indigo-200">
+                                          <Clock className="w-3 h-3" /> Tiempo: {formatMinutesToHoursStr(rec.duration_minutes)} {startTimeStr && endTimeStr ? `(${startTimeStr} - ${endTimeStr})` : ''}
                                         </span>
                                       )}
                                     </div>
@@ -495,13 +730,16 @@ export default function PestControlPage() {
         )}
       </div>
 
-      {/* Modal Registrar Jornada Caza */}
-      {showModal && (
+      {/* MODAL 1: Cierre de Turno en Vivo */}
+      {showModal && activeShift && (
         <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-3 sm:p-4 pb-20 sm:pb-4 overflow-y-auto">
-          <div className="bg-white w-full max-w-md rounded-2xl p-5 sm:p-6 shadow-2xl flex flex-col max-h-[82vh] sm:max-h-[85vh] my-auto">
+          <div className="bg-white w-full max-w-md rounded-2xl p-5 sm:p-6 shadow-2xl flex flex-col max-h-[85vh] my-auto border border-emerald-100">
             {/* Header Fijo */}
             <div className="flex items-center justify-between border-b pb-3 shrink-0">
-              <h3 className="text-base font-bold text-gray-900">Registrar Jornada de Caza</h3>
+              <div>
+                <h3 className="text-base font-bold text-gray-900">Cerrar y Registrar Turno de Caza</h3>
+                <p className="text-[11px] text-emerald-700 font-medium">Notificación automática al Grupo WhatsApp de Caza</p>
+              </div>
               <button 
                 type="button" 
                 onClick={() => setShowModal(false)}
@@ -511,93 +749,25 @@ export default function PestControlPage() {
               </button>
             </div>
 
+            {/* Resumen de Tiempo Efectivo */}
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 my-2 flex items-center justify-between text-xs text-emerald-900 shrink-0">
+              <div className="flex items-center gap-2">
+                <Clock className="w-5 h-5 text-emerald-600" />
+                <div>
+                  <span className="font-bold block">Tiempo Efectivo Transcurrido:</span>
+                  <span className="text-[11px] text-emerald-700">
+                    Apertura: {new Date(activeShift.started_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })} hrs
+                  </span>
+                </div>
+              </div>
+              <span className="text-base font-black text-emerald-800 font-mono">
+                {formatSecondsToHHMMSS(elapsedSeconds)}
+              </span>
+            </div>
+
             {/* Formulario Flex con Scroll en los campos */}
-            <form onSubmit={handleCreatePestRecord} className="flex flex-col flex-1 min-h-0">
-              {/* Cuerpo de Campos Scrollable */}
-              <div className="flex-1 overflow-y-auto space-y-3 py-3 pr-1">
-                {/* Cliente (Read Only) */}
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Cliente</label>
-                  <div className="p-2.5 bg-gray-100 border border-gray-200 rounded text-xs font-semibold text-gray-700 flex items-center gap-2">
-                    <Shield className="w-4 h-4 text-emerald-600" />
-                    <span>{clientNameDisplay}</span>
-                  </div>
-                </div>
-
-                {/* Fecha de la Jornada (Only for Admin / Supervisor) */}
-                {isAdminOrSuper && (
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">Fecha de la Jornada</label>
-                    <input
-                      type="date"
-                      required
-                      value={recordDate}
-                      onChange={(e) => setRecordDate(e.target.value)}
-                      className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs font-medium text-gray-700"
-                    />
-                  </div>
-                )}
-
-                {/* Selector de Operador (Only for Admin / Supervisor) */}
-                {isAdminOrSuper ? (
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">Operador Responsable de Caza</label>
-                    <select
-                      value={responsibleId}
-                      onChange={(e) => setResponsibleId(e.target.value)}
-                      className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs font-medium"
-                    >
-                      {operators.map(op => (
-                        <option key={op.id} value={op.id}>
-                          {op.full_name} ({op.role})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ) : (
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">Operador Responsable</label>
-                    <div className="p-2 bg-gray-100 border border-gray-200 rounded text-xs font-medium text-gray-600">
-                      {profile?.full_name} ({profile?.role})
-                    </div>
-                  </div>
-                )}
-
-                {/* Animal Counts */}
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">Conejos Macho</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={rabbitsMale}
-                      onChange={(e) => setRabbitsMale(Number(e.target.value))}
-                      className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs font-semibold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">Conejos Hembra</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={rabbitsFemale}
-                      onChange={(e) => setRabbitsFemale(Number(e.target.value))}
-                      className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs font-semibold"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Cantidad de Palomas</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={pigeons}
-                    onChange={(e) => setPigeons(Number(e.target.value))}
-                    className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs font-semibold"
-                  />
-                </div>
-
+            <form onSubmit={handleCloseShiftSubmit} className="flex flex-col flex-1 min-h-0">
+              <div className="flex-1 overflow-y-auto space-y-3 py-2 pr-1">
                 {/* Sector / Zona */}
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1">
@@ -610,13 +780,48 @@ export default function PestControlPage() {
                     onChange={(e) => setSector(e.target.value)}
                     placeholder={currentTotalAnimals > 0 ? "Obligatorio: Ej. Pista 17R / Sector Norte" : "Opcional: Ej. Pista 17R / Sector Norte"}
                     list="sectors-list"
-                    className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 text-gray-900"
                   />
                   <datalist id="sectors-list">
                     {existingSectors.map((sec) => (
                       <option key={sec} value={sec} />
                     ))}
                   </datalist>
+                </div>
+
+                {/* Animal Counts */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Conejos Macho</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={rabbitsMale}
+                      onChange={(e) => setRabbitsMale(Number(e.target.value))}
+                      className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs font-semibold text-gray-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Conejos Hembra</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={rabbitsFemale}
+                      onChange={(e) => setRabbitsFemale(Number(e.target.value))}
+                      className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs font-semibold text-gray-900"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Cantidad de Palomas</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={pigeons}
+                    onChange={(e) => setPigeons(Number(e.target.value))}
+                    className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs font-semibold text-gray-900"
+                  />
                 </div>
 
                 {/* Motivo de No-Caza (If 0 animals) */}
@@ -652,18 +857,18 @@ export default function PestControlPage() {
 
                 {/* Observaciones generales */}
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Observaciones de la Jornada</label>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Observaciones / Novedades del Turno</label>
                   <textarea
                     rows={2}
                     value={observations}
                     onChange={(e) => setObservations(e.target.value)}
-                    placeholder="Detalles sobre el estado del terreno, horario, clima..."
-                    className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs"
+                    placeholder="Detalles sobre el estado del terreno, clima, avistamientos..."
+                    className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs text-gray-900"
                   />
                 </div>
               </div>
 
-              {/* Botones Fijos Abajo (Sticky Footer) */}
+              {/* Botones Fijos Abajo */}
               <div className="flex justify-end gap-2 pt-3 border-t border-gray-100 bg-white shrink-0">
                 <button
                   type="button"
@@ -675,7 +880,147 @@ export default function PestControlPage() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="px-5 py-2.5 bg-emerald-600 text-white text-xs font-bold rounded-xl hover:bg-emerald-700 disabled:opacity-50 shadow-sm"
+                  className="px-5 py-2.5 bg-emerald-600 text-white text-xs font-bold rounded-xl hover:bg-emerald-700 disabled:opacity-50 shadow-sm flex items-center gap-1.5"
+                >
+                  {saving ? 'Cerrando Turno...' : 'Finalizar y Enviar Alerta'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: Ingreso Manual Pasado (Admin) */}
+      {showManualModal && isAdminOrSuper && (
+        <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-3 sm:p-4 pb-20 sm:pb-4 overflow-y-auto">
+          <div className="bg-white w-full max-w-md rounded-2xl p-5 sm:p-6 shadow-2xl flex flex-col max-h-[85vh] my-auto">
+            <div className="flex items-center justify-between border-b pb-3 shrink-0">
+              <h3 className="text-base font-bold text-gray-900">Ingreso Manual de Jornada</h3>
+              <button 
+                type="button" 
+                onClick={() => setShowManualModal(false)}
+                className="text-gray-400 hover:text-gray-600 text-xs font-bold px-2 py-1 rounded-md hover:bg-gray-100"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateManualRecord} className="flex flex-col flex-1 min-h-0">
+              <div className="flex-1 overflow-y-auto space-y-3 py-3 pr-1">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Fecha de la Jornada</label>
+                  <input
+                    type="date"
+                    required
+                    value={recordDate}
+                    onChange={(e) => setRecordDate(e.target.value)}
+                    className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs font-medium text-gray-700"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Operador Responsable de Caza</label>
+                  <select
+                    value={responsibleId}
+                    onChange={(e) => setResponsibleId(e.target.value)}
+                    className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs font-medium text-gray-900"
+                  >
+                    {operators.map(op => (
+                      <option key={op.id} value={op.id}>
+                        {op.full_name} ({op.role})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Sector / Zona (Opcional)</label>
+                  <input
+                    type="text"
+                    value={sector}
+                    onChange={(e) => setSector(e.target.value)}
+                    placeholder="Ej: Pista 17R / Sector Norte"
+                    list="sectors-list"
+                    className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs font-medium text-gray-900"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Conejos Macho</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={rabbitsMale}
+                      onChange={(e) => setRabbitsMale(Number(e.target.value))}
+                      className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs font-semibold text-gray-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Conejos Hembra</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={rabbitsFemale}
+                      onChange={(e) => setRabbitsFemale(Number(e.target.value))}
+                      className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs font-semibold text-gray-900"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Cantidad de Palomas</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={pigeons}
+                    onChange={(e) => setPigeons(Number(e.target.value))}
+                    className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs font-semibold text-gray-900"
+                  />
+                </div>
+
+                {currentTotalAnimals === 0 && (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-2">
+                    <div className="flex items-center gap-1.5 text-amber-800 font-bold text-xs">
+                      <AlertCircle className="w-4 h-4 text-amber-600" />
+                      <span>Motivo por el cual no se realizó caza *</span>
+                    </div>
+                    <select
+                      value={noHuntingReason}
+                      onChange={(e) => setNoHuntingReason(e.target.value)}
+                      className="w-full p-2 bg-white border border-amber-300 rounded text-xs font-medium text-amber-900"
+                    >
+                      <option value="">-- Seleccionar motivo --</option>
+                      {PRESET_REASONS.map(r => (
+                        <option key={r} value={r}>{r}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Observaciones</label>
+                  <textarea
+                    rows={2}
+                    value={observations}
+                    onChange={(e) => setObservations(e.target.value)}
+                    className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs text-gray-900"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-gray-100 bg-white shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowManualModal(false)}
+                  className="px-4 py-2 bg-gray-100 text-xs font-semibold rounded-xl text-gray-700"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="px-5 py-2.5 bg-emerald-600 text-white text-xs font-bold rounded-xl shadow-sm"
                 >
                   {saving ? 'Guardando...' : 'Guardar Jornada'}
                 </button>

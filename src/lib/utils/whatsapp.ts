@@ -6,6 +6,7 @@ export interface WhatsAppConfig {
   instance_id: string
   token: string
   default_group_id: string
+  caza_group_id?: string
 }
 
 export async function getWhatsAppConfig(): Promise<WhatsAppConfig> {
@@ -23,6 +24,7 @@ export async function getWhatsAppConfig(): Promise<WhatsAppConfig> {
         instance_id: data.value.instance_id || '',
         token: data.value.token || '',
         default_group_id: data.value.default_group_id || '',
+        caza_group_id: data.value.caza_group_id || '',
       }
     }
   } catch (err) {
@@ -34,6 +36,7 @@ export async function getWhatsAppConfig(): Promise<WhatsAppConfig> {
     instance_id: '',
     token: '',
     default_group_id: '',
+    caza_group_id: '',
   }
 }
 
@@ -118,6 +121,66 @@ function formatDateTime(dateStr?: string, timeStr?: string): string {
 
   const timeFormatted = timeStr || new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })
   return `${dateFormatted} ${timeFormatted}`
+}
+
+// ----------------------------------------------------------------------------
+// SPECIFIC EVENT ALERT HELPERS
+// ----------------------------------------------------------------------------
+
+export async function sendCazaShiftStartWhatsAppAlert(params: {
+  operator_name: string
+  started_at: string
+}) {
+  const config = await getWhatsAppConfig()
+  const targetGroup = config.caza_group_id || config.default_group_id
+
+  const message = [
+    `🎯 *INICIO DE TURNO DE CAZA AEROPORTUARIO*`,
+    `• *Operador:* ${formatFreeText(params.operator_name)}`,
+    `• *Hora Apertura:* ${params.started_at}`,
+    `• *Estado:* Turno en Curso 🟢`
+  ].join('\n')
+
+  return sendWhatsAppMessage({
+    to: targetGroup,
+    body: message
+  })
+}
+
+export async function sendCazaShiftEndWhatsAppAlert(params: {
+  operator_name: string
+  started_at: string
+  ended_at: string
+  duration_str: string
+  sector: string
+  rabbits_total: number
+  rabbits_male: number
+  rabbits_female: number
+  pigeons: number
+  observations?: string
+}) {
+  const config = await getWhatsAppConfig()
+  const targetGroup = config.caza_group_id || config.default_group_id
+
+  const totalCaptured = params.rabbits_total + params.pigeons
+  const hasCaza = totalCaptured > 0
+
+  const message = [
+    `🏁 *CIERRE DE TURNO DE CAZA AEROPORTUARIO*`,
+    `• *Operador:* ${formatFreeText(params.operator_name)}`,
+    `• *Horario:* De ${params.started_at} a ${params.ended_at}`,
+    `• *Tiempo Efectivo:* ⏱️ ${params.duration_str}`,
+    `• *Sector / Zona:* ${formatFreeText(params.sector)}`,
+    `• *Resultado:* ${hasCaza ? '🎯 Caza Efectiva' : '⚠️ Sin Caza'}`,
+    `  - Conejos Macho: ${params.rabbits_male} | Hembra: ${params.rabbits_female} (Total: ${params.rabbits_total})`,
+    `  - Palomas: ${params.pigeons}`,
+    params.observations ? `• *Observaciones / Motivo:* ${formatFreeText(params.observations)}` : null
+  ].filter(Boolean).join('\n')
+
+  return sendWhatsAppMessage({
+    to: targetGroup,
+    body: message
+  })
 }
 
 // ----------------------------------------------------------------------------

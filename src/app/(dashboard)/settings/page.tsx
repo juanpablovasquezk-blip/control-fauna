@@ -31,6 +31,7 @@ export default function SettingsPage() {
   const [ultramsgToken, setUltramsgToken] = useState('')
   const [ultramsgInstance, setUltramsgInstance] = useState('')
   const [defaultGroupId, setDefaultGroupId] = useState('')
+  const [cazaGroupId, setCazaGroupId] = useState('')
   const [testingWa, setTestingWa] = useState(false)
 
   // Email Config State
@@ -111,6 +112,7 @@ export default function SettingsPage() {
       setUltramsgInstance(waRes.config.instance_id || '')
       setUltramsgToken(waRes.config.token || '')
       setDefaultGroupId(waRes.config.default_group_id || '')
+      setCazaGroupId(waRes.config.caza_group_id || '')
     }
 
     // Email Settings
@@ -132,6 +134,7 @@ export default function SettingsPage() {
         instance_id: ultramsgInstance,
         token: ultramsgToken,
         default_group_id: defaultGroupId,
+        caza_group_id: cazaGroupId,
       })
       if (!res.success) throw new Error(res.error)
       alert('Configuración de WhatsApp guardada con éxito.')
@@ -748,6 +751,20 @@ export default function SettingsPage() {
             />
             <p className="text-[10px] text-gray-500 mt-1">
               Las alertas generales (Rondas, Canil, etc.) y clientes sin grupo exclusivo asignado se enviarán a este ID.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">ID de Grupo WhatsApp Exclusivo para Caza (Conejos y Palomas)</label>
+            <input
+              type="text"
+              value={cazaGroupId}
+              onChange={(e) => setCazaGroupId(e.target.value)}
+              placeholder="Ej: 120363987654321012@g.us"
+              className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl text-xs text-gray-900 font-medium focus:bg-white focus:ring-2 focus:ring-emerald-500"
+            />
+            <p className="text-[10px] text-gray-500 mt-1">
+              Las alertas de Apertura y Cierre de Turno de Caza se enviarán exclusivamente a este grupo.
             </p>
           </div>
 

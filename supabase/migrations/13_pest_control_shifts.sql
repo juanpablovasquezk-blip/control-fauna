@@ -1,0 +1,6 @@
+-- 13. PEST CONTROL SHIFTS (Apertura, Cierre, Tiempo Efectivo)
+ALTER TABLE public.pest_control_records
+ADD COLUMN IF NOT EXISTS started_at TIMESTAMPTZ DEFAULT NOW(),
+ADD COLUMN IF NOT EXISTS ended_at TIMESTAMPTZ,
+ADD COLUMN IF NOT EXISTS duration_minutes INT,
+ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'completado';

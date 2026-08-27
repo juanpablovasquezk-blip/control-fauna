@@ -261,7 +261,13 @@ export async function getWhatsAppSettingsAction() {
     }
 
     if (data?.value) {
-      return { success: true, config: data.value }
+      return { 
+        success: true, 
+        config: {
+          ...data.value,
+          caza_group_id: data.value.caza_group_id || ''
+        } 
+      }
     }
   } catch (err: any) {
     console.warn('getWhatsAppSettingsAction catch:', err)
@@ -274,6 +280,7 @@ export async function getWhatsAppSettingsAction() {
       instance_id: '',
       token: '',
       default_group_id: '',
+      caza_group_id: '',
     },
   }
 }
@@ -283,6 +290,7 @@ export async function saveWhatsAppSettingsAction(config: {
   instance_id: string
   token: string
   default_group_id: string
+  caza_group_id?: string
 }) {
   try {
     const { error } = await supabaseAdmin.from('system_settings').upsert({
