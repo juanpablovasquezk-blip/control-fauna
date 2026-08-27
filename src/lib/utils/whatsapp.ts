@@ -430,6 +430,8 @@ export async function sendRoundWhatsAppAlert(params: {
   airport_zone: string
   status: string
   observations?: string
+  round_date?: string
+  round_time?: string
 }) {
   const obsFormatted = params.observations ? formatFreeText(params.observations) : ''
 
@@ -439,7 +441,7 @@ export async function sendRoundWhatsAppAlert(params: {
     `• *Zona:* ${formatFreeText(params.airport_zone)}`,
     `• *Estado:* ${params.status}`,
     obsFormatted ? `• *Novedades:* ${obsFormatted}` : null,
-    `• *Fecha/Hora:* ${formatDateTime()}`,
+    `• *Fecha/Hora:* ${formatDateTime(params.round_date, params.round_time)}`,
   ]
     .filter(Boolean)
     .join('\n')

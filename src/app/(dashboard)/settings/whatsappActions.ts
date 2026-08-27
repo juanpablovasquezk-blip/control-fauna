@@ -24,6 +24,8 @@ export async function sendRoundWhatsAppAction(params: {
   airport_zone: string
   status: string
   observations?: string
+  round_date?: string
+  round_time?: string
 }) {
   return _sendRoundWhatsAppAlert(params)
 }
