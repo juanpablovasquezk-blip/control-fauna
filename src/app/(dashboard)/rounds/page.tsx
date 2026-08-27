@@ -13,7 +13,7 @@ import {
 } from '@/app/(dashboard)/settings/whatsappActions'
 import { uploadImageFile } from '@/lib/utils/uploadHelpers'
 import { sendFenceDamageEmailAction } from '@/app/(dashboard)/settings/emailActions'
-import { deleteRoundAction } from './actions'
+import { deleteRoundAction, getRoundsDataAction, getFenceIncidentsAction } from './actions'
 function formatSafeDate(dateInput: any): string {
   if (!dateInput) return 'Sin fecha'
   try {
@@ -88,36 +88,13 @@ export default function RoundsPage() {
   async function fetchRounds() {
     setLoading(true)
     
-    // Fetch zones dynamically
-    const { data: zoneData } = await supabase.from('airport_zones').select('*').order('name')
-    if (zoneData) {
-      setZones(zoneData)
-    }
-
-    // Fetch active operators for Admin dropdown
-    const { data: opData } = await supabase
-      .from('profiles')
-      .select('id, full_name, role')
-      .eq('active', true)
-      .order('full_name')
-
-    if (opData) setOperators(opData)
-
-    const { data, error } = await supabase
-      .from('rounds')
-      .select('*, operator:profiles!operator_id(*), fence_incidents(*)')
-      .order('start_time', { ascending: false })
-
-    if (error) {
-      console.warn('Error fetching rounds with operator, attempting fallback query:', error.message)
-      const { data: fallbackData } = await supabase
-        .from('rounds')
-        .select('*, fence_incidents(*)')
-        .order('start_time', { ascending: false })
-
-      if (fallbackData) setRounds(fallbackData as Round[])
-    } else if (data) {
-      setRounds(data as Round[])
+    const result = await getRoundsDataAction()
+    if (result.success) {
+      if (result.zones) setZones(result.zones)
+      if (result.operators) setOperators(result.operators as any[])
+      if (result.rounds) setRounds(result.rounds as Round[])
+    } else {
+      console.warn('Error fetching rounds:', result.error)
     }
 
     setLoading(false)
@@ -194,13 +171,10 @@ export default function RoundsPage() {
 
     // Cargar detalles de incidencia si no están poblados aún
     if (r.has_fence_incident && (!r.fence_incidents || r.fence_incidents.length === 0)) {
-      const { data: incs } = await supabase
-        .from('fence_incidents')
-        .select('*')
-        .eq('round_id', r.id)
+      const result = await getFenceIncidentsAction(r.id)
 
-      if (incs && incs.length > 0) {
-        const updated = { ...r, fence_incidents: incs }
+      if (result.success && result.incidents && result.incidents.length > 0) {
+        const updated = { ...r, fence_incidents: result.incidents }
         setShowDetailModal(updated)
         setRounds(prev => prev.map(item => item.id === r.id ? updated : item))
       }

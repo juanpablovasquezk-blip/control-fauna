@@ -8,7 +8,6 @@ export async function deleteRoundAction(roundId: string): Promise<{ success: boo
       return { success: false, error: 'ID de ronda no proporcionado.' }
     }
 
-    // 1. Eliminar incidentes de cerco vinculados
     const { error: incErr } = await supabaseAdmin
       .from('fence_incidents')
       .delete()
@@ -18,7 +17,6 @@ export async function deleteRoundAction(roundId: string): Promise<{ success: boo
       console.warn('Error eliminando fence_incidents asociados:', incErr)
     }
 
-    // 2. Eliminar la ronda
     const { error: roundErr } = await supabaseAdmin
       .from('rounds')
       .delete()
@@ -33,5 +31,59 @@ export async function deleteRoundAction(roundId: string): Promise<{ success: boo
   } catch (err: any) {
     console.error('deleteRoundAction exception:', err)
     return { success: false, error: err.message || 'Error al eliminar el registro de ronda.' }
+  }
+}
+
+export async function getRoundsDataAction() {
+  try {
+    const { data: zones } = await supabaseAdmin
+      .from('airport_zones')
+      .select('*')
+      .order('name')
+
+    const { data: operators } = await supabaseAdmin
+      .from('profiles')
+      .select('id, full_name, role')
+      .eq('active', true)
+      .order('full_name')
+
+    const { data: rounds, error } = await supabaseAdmin
+      .from('rounds')
+      .select('*, operator:profiles!operator_id(*), fence_incidents(*)')
+      .order('start_time', { ascending: false })
+
+    if (error) {
+      console.error('Error fetching rounds:', error)
+      return { success: false, error: error.message }
+    }
+
+    return {
+      success: true,
+      zones: zones || [],
+      operators: operators || [],
+      rounds: rounds || [],
+    }
+  } catch (err: any) {
+    console.error('getRoundsDataAction error:', err)
+    return { success: false, error: err.message }
+  }
+}
+
+export async function getFenceIncidentsAction(roundId: string) {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('fence_incidents')
+      .select('*')
+      .eq('round_id', roundId)
+
+    if (error) {
+      console.error('Error fetching fence_incidents:', error)
+      return { success: false, error: error.message }
+    }
+
+    return { success: true, incidents: data || [] }
+  } catch (err: any) {
+    console.error('getFenceIncidentsAction error:', err)
+    return { success: false, error: err.message }
   }
 }
