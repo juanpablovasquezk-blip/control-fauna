@@ -13,6 +13,23 @@ import {
 } from '@/lib/utils/whatsapp'
 import { uploadImageFile } from '@/lib/utils/uploadHelpers'
 import { sendFenceDamageEmailAction } from '@/app/(dashboard)/settings/emailActions'
+function formatSafeDate(dateInput: any): string {
+  if (!dateInput) return 'Sin fecha'
+  try {
+    const d = new Date(dateInput)
+    if (isNaN(d.getTime())) return String(dateInput)
+    return d.toLocaleDateString('es-CL', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: 'America/Santiago'
+    })
+  } catch (err) {
+    return String(dateInput)
+  }
+}
 
 export default function RoundsPage() {
   const [rounds, setRounds] = useState<Round[]>([])
@@ -508,13 +525,7 @@ export default function RoundsPage() {
                 </tr>
               ) : (
                 filteredRounds.map((r) => {
-                  const roundDateFormatted = new Date(r.start_time || r.round_date || r.created_at).toLocaleDateString('es-CL', {
-                    day: '2-digit',
-                    month: '2-digit',
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })
+                  const roundDateFormatted = formatSafeDate(r.start_time || r.round_date || r.created_at)
 
                   return (
                     <tr
@@ -792,7 +803,7 @@ export default function RoundsPage() {
                 </div>
                 <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
                   <Clock className="w-3.5 h-3.5 text-gray-400" />
-                  <span>Realizada el {new Date(showDetailModal.start_time || showDetailModal.round_date || showDetailModal.created_at).toLocaleString()}</span>
+                  <span>Realizada el {formatSafeDate(showDetailModal.start_time || showDetailModal.round_date || showDetailModal.created_at)}</span>
                 </p>
               </div>
 
