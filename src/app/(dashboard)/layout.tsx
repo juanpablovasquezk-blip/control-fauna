@@ -6,6 +6,7 @@ import { Sidebar } from '@/components/layout/Sidebar'
 import { Navbar } from '@/components/layout/Navbar'
 import { BottomNav } from '@/components/layout/BottomNav'
 import { useRouter } from 'next/navigation'
+import { PWARegister } from '@/components/PWARegister'
 
 function DashboardContent({ children }: { children: React.ReactNode }) {
   const { profile, loading } = useAuth()
@@ -34,12 +35,6 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
 
     window.addEventListener('unhandledrejection', handleUnhandledRejection)
 
-    if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
-      navigator.serviceWorker.register('/sw.js').catch((err) => {
-        console.error('Service worker registration failed:', err)
-      })
-    }
-
     return () => {
       window.removeEventListener('unhandledrejection', handleUnhandledRejection)
     }
@@ -65,6 +60,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
           {children}
         </main>
         <BottomNav />
+        <PWARegister />
       </div>
     </div>
   )
