@@ -26,17 +26,21 @@ export async function requestPasswordResetAction(email: string, origin: string):
       return { success: false, message: 'Por favor, ingresa un correo electrónico válido.' }
     }
 
-    // 1. Verificar si existe el perfil en la base de datos
-    const { data: profile } = await supabaseAdmin
+    // 1. Buscar usuario en profiles de forma case-insensitive (.ilike)
+    const { data: profile, error: profileErr } = await supabaseAdmin
       .from('profiles')
-      .select('id, full_name, active')
-      .eq('email', cleanEmail)
+      .select('id, full_name, email, active')
+      .ilike('email', cleanEmail)
       .maybeSingle()
+
+    if (profileErr) {
+      console.error('Error buscando perfil:', profileErr)
+    }
 
     if (!profile) {
       return {
-        success: true,
-        message: 'Si el correo electrónico ingresado está registrado en la plataforma, recibirás un enlace con las instrucciones para restablecer tu contraseña.'
+        success: false,
+        message: `El correo "${email}" no se encuentra registrado en el sistema. Verifique la dirección o solicite su registro al administrador.`
       }
     }
 
@@ -44,17 +48,22 @@ export async function requestPasswordResetAction(email: string, origin: string):
       return { success: false, message: 'Esta cuenta se encuentra inactiva. Contacte al administrador.' }
     }
 
+    const targetEmail = profile.email || cleanEmail
+
     // 2. Generar el enlace de recuperación mediante Supabase Admin API
     const redirectUrl = `${origin}/reset-password`
     const { data: linkData, error: linkErr } = await supabaseAdmin.auth.admin.generateLink({
       type: 'recovery',
-      email: cleanEmail,
+      email: targetEmail,
       options: { redirectTo: redirectUrl }
     })
 
     if (linkErr || !linkData?.properties?.action_link) {
       console.error('Error generando recovery link:', linkErr)
-      return { success: false, message: 'Error al generar el enlace de recuperación.' }
+      return { 
+        success: false, 
+        message: `Error al generar el enlace de recuperación: ${linkErr?.message || 'Token no generado'}` 
+      }
     }
 
     const resetUrl = linkData.properties.action_link
@@ -65,16 +74,24 @@ export async function requestPasswordResetAction(email: string, origin: string):
     const fromEmail = process.env.SMTP_FROM_EMAIL || 'no-reply@minerquim.cl'
     const htmlContent = generatePasswordResetEmailHtml(resetUrl)
 
-    await transporter.sendMail({
-      from: `"${fromName}" <${fromEmail}>`,
-      to: cleanEmail,
-      subject: '🔑 Restablecimiento de Contraseña - Control de Fauna Minerquim',
-      html: htmlContent
-    })
+    try {
+      await transporter.sendMail({
+        from: `"${fromName}" <${fromEmail}>`,
+        to: targetEmail,
+        subject: '🔑 Restablecimiento de Contraseña - Control de Fauna Minerquim',
+        html: htmlContent
+      })
+    } catch (smtpErr: any) {
+      console.error('Error enviando correo SMTP:', smtpErr)
+      return {
+        success: false,
+        message: `Error al enviar correo mediante el servidor SMTP: ${smtpErr.message || smtpErr}`
+      }
+    }
 
     return {
       success: true,
-      message: 'Si el correo electrónico ingresado está registrado en la plataforma, recibirás un enlace con las instrucciones para restablecer tu contraseña.'
+      message: `Hemos enviado las instrucciones para restablecer tu contraseña al correo ${targetEmail}. Por favor revisa tu bandeja de entrada o carpeta de Spam.`
     }
   } catch (err: any) {
     console.error('requestPasswordResetAction exception:', err)
