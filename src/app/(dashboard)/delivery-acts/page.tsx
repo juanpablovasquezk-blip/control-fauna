@@ -220,6 +220,11 @@ export default function DeliveryActsPage() {
   const [showFormatPreview, setShowFormatPreview] = useState(false)
   const [selectedPreviewAct, setSelectedPreviewAct] = useState<DeliveryAct | null>(null)
 
+  const visibleActs = acts.filter((act) => {
+    if (isAdminOrSuper) return true
+    return !act.signed_scan_url
+  })
+
   return (
     <>
       <div className="space-y-6 print:hidden">
@@ -258,17 +263,21 @@ export default function DeliveryActsPage() {
       {/* Acts List */}
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-          <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wider">Historial de Actas Emitidas</h3>
-          <span className="text-xs text-gray-500">{acts.length} actas</span>
+          <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wider">
+            {isAdminOrSuper ? 'Historial Completo de Actas Emitidas' : 'Actas Pendientes de Escáner Firmado'}
+          </h3>
+          <span className="text-xs text-gray-500">{visibleActs.length} actas</span>
         </div>
 
         {loading ? (
           <div className="p-6 text-center text-xs text-gray-500">Cargando actas...</div>
-        ) : acts.length === 0 ? (
-          <div className="p-6 text-center text-xs text-gray-400">No hay actas de entrega emitidas.</div>
+        ) : visibleActs.length === 0 ? (
+          <div className="p-6 text-center text-xs text-gray-400">
+            {isAdminOrSuper ? 'No hay actas de entrega emitidas.' : 'No hay actas pendientes de subir imagen firmada.'}
+          </div>
         ) : (
           <div className="divide-y divide-gray-100">
-            {acts.map((act) => (
+            {visibleActs.map((act) => (
               <div key={act.id} className="p-4 hover:bg-gray-50 transition flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
