@@ -244,7 +244,8 @@ export default function SettingsPage() {
           fullName: userFullName,
           rut: userRut,
           role: userRole,
-          active: userActive
+          active: userActive,
+          password: userPassword
         })
         if (!res.success) throw new Error(res.error)
       } else {
@@ -887,19 +888,19 @@ export default function SettingsPage() {
                 />
               </div>
 
-              {!editingUser && (
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Contraseña Inicial</label>
-                  <input
-                    type="password"
-                    required
-                    value={userPassword}
-                    onChange={(e) => setUserPassword(e.target.value)}
-                    placeholder="Min. 8 caracteres"
-                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded text-xs text-gray-900"
-                  />
-                </div>
-              )}
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">
+                  {editingUser ? 'Nueva Contraseña (Opcional)' : 'Contraseña Inicial *'}
+                </label>
+                <input
+                  type="password"
+                  required={!editingUser}
+                  value={userPassword}
+                  onChange={(e) => setUserPassword(e.target.value)}
+                  placeholder={editingUser ? 'Dejar en blanco para mantener la actual' : 'Min. 8 caracteres'}
+                  className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded text-xs text-gray-900"
+                />
+              </div>
 
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">Rol en la Plataforma</label>

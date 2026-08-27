@@ -40,7 +40,7 @@ export async function createUserAction(formData: any) {
 }
 
 export async function updateUserAction(formData: any) {
-  const { id, email, fullName, role, active, rut } = formData
+  const { id, email, fullName, role, active, rut, password } = formData
 
   const authAttributes: any = {
     user_metadata: {
@@ -50,8 +50,9 @@ export async function updateUserAction(formData: any) {
     }
   }
   if (email) authAttributes.email = email
+  if (password && password.trim() !== '') authAttributes.password = password
 
-  // Update in auth.users metadata & email
+  // Update in auth.users metadata, email & password
   const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(id, authAttributes)
   if (authError) {
     return { success: false, error: authError.message }
