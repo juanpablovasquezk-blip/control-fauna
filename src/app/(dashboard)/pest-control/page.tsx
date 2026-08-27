@@ -394,169 +394,182 @@ export default function PestControlPage() {
 
       {/* Modal Registrar Jornada Caza */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto shadow-xl">
-            <div className="flex items-center justify-between border-b pb-3">
+        <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-3 sm:p-4 pb-20 sm:pb-4 overflow-y-auto">
+          <div className="bg-white w-full max-w-md rounded-2xl p-5 sm:p-6 shadow-2xl flex flex-col max-h-[82vh] sm:max-h-[85vh] my-auto">
+            {/* Header Fijo */}
+            <div className="flex items-center justify-between border-b pb-3 shrink-0">
               <h3 className="text-base font-bold text-gray-900">Registrar Jornada de Caza</h3>
+              <button 
+                type="button" 
+                onClick={() => setShowModal(false)}
+                className="text-gray-400 hover:text-gray-600 text-xs font-bold px-2 py-1 rounded-md hover:bg-gray-100"
+              >
+                ✕
+              </button>
             </div>
 
-            <form onSubmit={handleCreatePestRecord} className="space-y-3">
-              {/* Cliente (Read Only) */}
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Cliente</label>
-                <div className="p-2.5 bg-gray-100 border border-gray-200 rounded text-xs font-semibold text-gray-700 flex items-center gap-2">
-                  <Shield className="w-4 h-4 text-emerald-600" />
-                  <span>{clientNameDisplay}</span>
-                </div>
-              </div>
-
-              {/* Fecha de la Jornada (Only for Admin / Supervisor) */}
-              {isAdminOrSuper && (
+            {/* Formulario Flex con Scroll en los campos */}
+            <form onSubmit={handleCreatePestRecord} className="flex flex-col flex-1 min-h-0">
+              {/* Cuerpo de Campos Scrollable */}
+              <div className="flex-1 overflow-y-auto space-y-3 py-3 pr-1">
+                {/* Cliente (Read Only) */}
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Fecha de la Jornada</label>
-                  <input
-                    type="date"
-                    required
-                    value={recordDate}
-                    onChange={(e) => setRecordDate(e.target.value)}
-                    className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs font-medium text-gray-700"
-                  />
-                </div>
-              )}
-
-              {/* Selector de Operador (Only for Admin / Supervisor) */}
-              {isAdminOrSuper ? (
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Operador Responsable de Caza</label>
-                  <select
-                    value={responsibleId}
-                    onChange={(e) => setResponsibleId(e.target.value)}
-                    className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs font-medium"
-                  >
-                    {operators.map(op => (
-                      <option key={op.id} value={op.id}>
-                        {op.full_name} ({op.role})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ) : (
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Operador Responsable</label>
-                  <div className="p-2 bg-gray-100 border border-gray-200 rounded text-xs font-medium text-gray-600">
-                    {profile?.full_name} ({profile?.role})
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Cliente</label>
+                  <div className="p-2.5 bg-gray-100 border border-gray-200 rounded text-xs font-semibold text-gray-700 flex items-center gap-2">
+                    <Shield className="w-4 h-4 text-emerald-600" />
+                    <span>{clientNameDisplay}</span>
                   </div>
                 </div>
-              )}
 
-              {/* Sector */}
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Sector / Zona (Opcional)</label>
-                <input
-                  type="text"
-                  value={sector}
-                  onChange={(e) => setSector(e.target.value)}
-                  placeholder="Ej: Pista 17R / Sector Norte"
-                  list="sectors-list"
-                  className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs font-medium"
-                />
-                <datalist id="sectors-list">
-                  {existingSectors.map((sec) => (
-                    <option key={sec} value={sec} />
-                  ))}
-                </datalist>
-              </div>
-
-              {/* Animal Counts */}
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Conejos Macho</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={rabbitsMale}
-                    onChange={(e) => setRabbitsMale(Number(e.target.value))}
-                    className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs font-semibold"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Conejos Hembra</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={rabbitsFemale}
-                    onChange={(e) => setRabbitsFemale(Number(e.target.value))}
-                    className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs font-semibold"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Cantidad de Palomas</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={pigeons}
-                  onChange={(e) => setPigeons(Number(e.target.value))}
-                  className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs font-semibold"
-                />
-              </div>
-
-              {/* Motivo de No-Caza (If 0 animals) */}
-              {(Number(rabbitsMale) + Number(rabbitsFemale) + Number(pigeons)) === 0 && (
-                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-2">
-                  <div className="flex items-center gap-1.5 text-amber-800 font-bold text-xs">
-                    <AlertCircle className="w-4 h-4 text-amber-600" />
-                    <span>Motivo por el cual no se realizó caza *</span>
-                  </div>
-                  <select
-                    value={noHuntingReason}
-                    onChange={(e) => setNoHuntingReason(e.target.value)}
-                    className="w-full p-2 bg-white border border-amber-300 rounded text-xs font-medium text-amber-900"
-                  >
-                    <option value="">-- Seleccionar motivo --</option>
-                    {PRESET_REASONS.map(r => (
-                      <option key={r} value={r}>{r}</option>
-                    ))}
-                  </select>
-
-                  {noHuntingReason === 'Otro (especificar)' && (
+                {/* Fecha de la Jornada (Only for Admin / Supervisor) */}
+                {isAdminOrSuper && (
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Fecha de la Jornada</label>
                     <input
-                      type="text"
+                      type="date"
                       required
-                      placeholder="Escriba el motivo detallado..."
-                      value={customReason}
-                      onChange={(e) => setCustomReason(e.target.value)}
-                      className="w-full p-2 bg-white border border-amber-300 rounded text-xs text-gray-900"
+                      value={recordDate}
+                      onChange={(e) => setRecordDate(e.target.value)}
+                      className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs font-medium text-gray-700"
                     />
-                  )}
-                </div>
-              )}
+                  </div>
+                )}
 
-              {/* Observaciones generales */}
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Observaciones de la Jornada</label>
-                <textarea
-                  rows={2}
-                  value={observations}
-                  onChange={(e) => setObservations(e.target.value)}
-                  placeholder="Detalles sobre el estado del terreno, horario, clima..."
-                  className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs"
-                />
+                {/* Selector de Operador (Only for Admin / Supervisor) */}
+                {isAdminOrSuper ? (
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Operador Responsable de Caza</label>
+                    <select
+                      value={responsibleId}
+                      onChange={(e) => setResponsibleId(e.target.value)}
+                      className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs font-medium"
+                    >
+                      {operators.map(op => (
+                        <option key={op.id} value={op.id}>
+                          {op.full_name} ({op.role})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Operador Responsable</label>
+                    <div className="p-2 bg-gray-100 border border-gray-200 rounded text-xs font-medium text-gray-600">
+                      {profile?.full_name} ({profile?.role})
+                    </div>
+                  </div>
+                )}
+
+                {/* Sector */}
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Sector / Zona (Opcional)</label>
+                  <input
+                    type="text"
+                    value={sector}
+                    onChange={(e) => setSector(e.target.value)}
+                    placeholder="Ej: Pista 17R / Sector Norte"
+                    list="sectors-list"
+                    className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs font-medium"
+                  />
+                  <datalist id="sectors-list">
+                    {existingSectors.map((sec) => (
+                      <option key={sec} value={sec} />
+                    ))}
+                  </datalist>
+                </div>
+
+                {/* Animal Counts */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Conejos Macho</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={rabbitsMale}
+                      onChange={(e) => setRabbitsMale(Number(e.target.value))}
+                      className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs font-semibold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Conejos Hembra</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={rabbitsFemale}
+                      onChange={(e) => setRabbitsFemale(Number(e.target.value))}
+                      className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs font-semibold"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Cantidad de Palomas</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={pigeons}
+                    onChange={(e) => setPigeons(Number(e.target.value))}
+                    className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs font-semibold"
+                  />
+                </div>
+
+                {/* Motivo de No-Caza (If 0 animals) */}
+                {(Number(rabbitsMale) + Number(rabbitsFemale) + Number(pigeons)) === 0 && (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-2">
+                    <div className="flex items-center gap-1.5 text-amber-800 font-bold text-xs">
+                      <AlertCircle className="w-4 h-4 text-amber-600" />
+                      <span>Motivo por el cual no se realizó caza *</span>
+                    </div>
+                    <select
+                      value={noHuntingReason}
+                      onChange={(e) => setNoHuntingReason(e.target.value)}
+                      className="w-full p-2 bg-white border border-amber-300 rounded text-xs font-medium text-amber-900"
+                    >
+                      <option value="">-- Seleccionar motivo --</option>
+                      {PRESET_REASONS.map(r => (
+                        <option key={r} value={r}>{r}</option>
+                      ))}
+                    </select>
+
+                    {noHuntingReason === 'Otro (especificar)' && (
+                      <input
+                        type="text"
+                        required
+                        placeholder="Escriba el motivo detallado..."
+                        value={customReason}
+                        onChange={(e) => setCustomReason(e.target.value)}
+                        className="w-full p-2 bg-white border border-amber-300 rounded text-xs text-gray-900"
+                      />
+                    )}
+                  </div>
+                )}
+
+                {/* Observaciones generales */}
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Observaciones de la Jornada</label>
+                  <textarea
+                    rows={2}
+                    value={observations}
+                    onChange={(e) => setObservations(e.target.value)}
+                    placeholder="Detalles sobre el estado del terreno, horario, clima..."
+                    className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs"
+                  />
+                </div>
               </div>
 
-              <div className="flex justify-end gap-2 pt-2 border-t">
+              {/* Botones Fijos Abajo (Sticky Footer) */}
+              <div className="flex justify-end gap-2 pt-3 border-t border-gray-100 bg-white shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2 bg-gray-100 text-xs font-semibold rounded hover:bg-gray-200"
+                  className="px-4 py-2 bg-gray-100 text-xs font-semibold rounded-xl hover:bg-gray-200 text-gray-700"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="px-4 py-2 bg-emerald-600 text-white text-xs font-semibold rounded hover:bg-emerald-700 disabled:opacity-50"
+                  className="px-5 py-2.5 bg-emerald-600 text-white text-xs font-bold rounded-xl hover:bg-emerald-700 disabled:opacity-50 shadow-sm"
                 >
                   {saving ? 'Guardando...' : 'Guardar Jornada'}
                 </button>
