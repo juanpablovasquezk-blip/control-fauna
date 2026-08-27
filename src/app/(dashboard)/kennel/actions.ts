@@ -96,6 +96,42 @@ export async function getKennelDataAction() {
 
     if (cErr) console.error('Error fetching kennel_cleanings:', cErr)
 
+    // Determinar la fecha de ingreso más antigua de los animales actualmente en el canil
+    const activeAnimalIds = new Set<string>()
+    activeKennelData.forEach(k => { if (k.animal_id) activeAnimalIds.add(k.animal_id) })
+    animalData?.forEach(a => activeAnimalIds.add(a.id))
+
+    let oldestActiveEntryTime: number | null = null
+    activeKennelData.forEach(k => {
+      if (k.entry_datetime) {
+        const t = new Date(k.entry_datetime).getTime()
+        if (!isNaN(t) && (oldestActiveEntryTime === null || t < oldestActiveEntryTime)) {
+          oldestActiveEntryTime = t
+        }
+      }
+    })
+    animalData?.forEach(a => {
+      if (a.created_at) {
+        const t = new Date(a.created_at).getTime()
+        if (!isNaN(t) && (oldestActiveEntryTime === null || t < oldestActiveEntryTime)) {
+          oldestActiveEntryTime = t
+        }
+      }
+    })
+
+    // Si no hay animales en el canil, el historial de aseo se vacía. 
+    // Si hay animales, solo se muestran los aseos realizados desde que ingresó el animal más antiguo activo.
+    let activeCleanings = cleaningData || []
+    if (activeAnimalIds.size === 0) {
+      activeCleanings = []
+    } else if (oldestActiveEntryTime !== null) {
+      const bufferTime = oldestActiveEntryTime - (5 * 60 * 1000) // Buffer 5 minutos
+      activeCleanings = (cleaningData || []).filter(c => {
+        const cTime = new Date(c.created_at || c.cleaning_datetime || '').getTime()
+        return !isNaN(cTime) && cTime >= bufferTime
+      })
+    }
+
     // 4. Fetch profiles / operators
     const { data: profilesData, error: pErr } = await supabaseAdmin
       .from('profiles')
@@ -105,7 +141,7 @@ export async function getKennelDataAction() {
 
     // Map operator profiles to cleanings manually to guarantee 100% data integrity
     const profilesMap = new Map((profilesData || []).map(p => [p.id, p]))
-    const cleaningsWithOperators = (cleaningData || []).map(c => ({
+    const cleaningsWithOperators = activeCleanings.map(c => ({
       ...c,
       operator: profilesMap.get(c.operator_id) || null
     }))

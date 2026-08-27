@@ -234,35 +234,37 @@ export default function KennelPage() {
         )}
       </div>
 
-      {/* Cleaning History List */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-          <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wider">Historial de Aseos y Alimentación</h3>
-          <span className="text-xs text-gray-500">{cleanings.length} registros</span>
-        </div>
-
-        {cleanings.length === 0 ? (
-          <div className="p-6 text-center text-xs text-gray-400">No hay registros de aseo cargados.</div>
-        ) : (
-          <div className="divide-y divide-gray-100">
-            {cleanings.map((c) => (
-              <div key={c.id} className="p-4 hover:bg-gray-50 transition flex items-center justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    <span className="text-xs font-bold text-gray-900">{c.cleaning_type}</span>
-                  </div>
-                  <p className="text-xs text-gray-600 mt-0.5">{c.observations || 'Sin observaciones'}</p>
-                  <p className="text-[10px] text-gray-400">Realizado por: {c.operator?.full_name || 'Operador / Admin'}</p>
-                </div>
-                <span className="text-[11px] text-gray-500 font-medium">
-                  {new Date(c.created_at || c.cleaning_datetime || '').toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' })}
-                </span>
-              </div>
-            ))}
+      {/* Cleaning History List - Only visible when animals are actively in kennel */}
+      {activeKennels.length > 0 && (
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+            <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wider">Historial de Aseos y Alimentación (Estadía Actual)</h3>
+            <span className="text-xs text-gray-500">{cleanings.length} registros</span>
           </div>
-        )}
-      </div>
+
+          {cleanings.length === 0 ? (
+            <div className="p-6 text-center text-xs text-gray-400">No se han registrado aseos durante esta estadía actual.</div>
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {cleanings.map((c) => (
+                <div key={c.id} className="p-4 hover:bg-gray-50 transition flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      <span className="text-xs font-bold text-gray-900">{c.cleaning_type}</span>
+                    </div>
+                    <p className="text-xs text-gray-600 mt-0.5">{c.observations || 'Sin observaciones'}</p>
+                    <p className="text-[10px] text-gray-400">Realizado por: {c.operator?.full_name || 'Operador / Admin'}</p>
+                  </div>
+                  <span className="text-[11px] text-gray-500 font-medium">
+                    {new Date(c.created_at || c.cleaning_datetime || '').toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' })}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Modal Registrar Aseo */}
       {showCleaningModal && (
