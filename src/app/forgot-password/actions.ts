@@ -1,0 +1,83 @@
+'use server'
+
+import { supabaseAdmin } from '@/lib/supabase/admin'
+import nodemailer from 'nodemailer'
+import { generatePasswordResetEmailHtml } from '@/lib/utils/emailTemplates'
+
+function createSmtpTransporter() {
+  const host = process.env.SMTP_HOST || 'mail.minerquim.cl'
+  const port = parseInt(process.env.SMTP_PORT || '465', 10)
+  const user = process.env.SMTP_USER || 'no-reply@minerquim.cl'
+  const pass = process.env.SMTP_PASS || 'Empresa_1000'
+
+  return nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,
+    auth: { user, pass },
+    tls: { rejectUnauthorized: false }
+  })
+}
+
+export async function requestPasswordResetAction(email: string, origin: string): Promise<{ success: boolean; message: string }> {
+  try {
+    const cleanEmail = email.trim().toLowerCase()
+    if (!cleanEmail) {
+      return { success: false, message: 'Por favor, ingresa un correo electrónico válido.' }
+    }
+
+    // 1. Verificar si existe el perfil en la base de datos
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('id, full_name, active')
+      .eq('email', cleanEmail)
+      .maybeSingle()
+
+    if (!profile) {
+      return {
+        success: true,
+        message: 'Si el correo electrónico ingresado está registrado en la plataforma, recibirás un enlace con las instrucciones para restablecer tu contraseña.'
+      }
+    }
+
+    if (!profile.active) {
+      return { success: false, message: 'Esta cuenta se encuentra inactiva. Contacte al administrador.' }
+    }
+
+    // 2. Generar el enlace de recuperación mediante Supabase Admin API
+    const redirectUrl = `${origin}/reset-password`
+    const { data: linkData, error: linkErr } = await supabaseAdmin.auth.admin.generateLink({
+      type: 'recovery',
+      email: cleanEmail,
+      options: { redirectTo: redirectUrl }
+    })
+
+    if (linkErr || !linkData?.properties?.action_link) {
+      console.error('Error generando recovery link:', linkErr)
+      return { success: false, message: 'Error al generar el enlace de recuperación.' }
+    }
+
+    const resetUrl = linkData.properties.action_link
+
+    // 3. Enviar correo corporativo vía SMTP
+    const transporter = createSmtpTransporter()
+    const fromName = process.env.SMTP_FROM_NAME || 'Control Fauna Minerquim'
+    const fromEmail = process.env.SMTP_FROM_EMAIL || 'no-reply@minerquim.cl'
+    const htmlContent = generatePasswordResetEmailHtml(resetUrl)
+
+    await transporter.sendMail({
+      from: `"${fromName}" <${fromEmail}>`,
+      to: cleanEmail,
+      subject: '🔑 Restablecimiento de Contraseña - Control de Fauna Minerquim',
+      html: htmlContent
+    })
+
+    return {
+      success: true,
+      message: 'Si el correo electrónico ingresado está registrado en la plataforma, recibirás un enlace con las instrucciones para restablecer tu contraseña.'
+    }
+  } catch (err: any) {
+    console.error('requestPasswordResetAction exception:', err)
+    return { success: false, message: err.message || 'Error al procesar la solicitud.' }
+  }
+}
