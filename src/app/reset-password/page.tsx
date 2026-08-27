@@ -3,35 +3,60 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Lock, CheckCircle2, AlertCircle, Loader2, ArrowRight } from 'lucide-react'
+import { Lock, Mail, KeyRound, CheckCircle2, AlertCircle, Loader2, ArrowRight } from 'lucide-react'
 
 export default function ResetPasswordPage() {
+  const [email, setEmail] = useState('')
+  const [otpToken, setOtpToken] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
   const [validatingSession, setValidatingSession] = useState(true)
+  const [isVerified, setIsVerified] = useState(false)
 
   const router = useRouter()
   const supabase = createClient()
 
   useEffect(() => {
-    // Escuchar el evento de cambio de estado de autenticación (el token de recuperación viene en la URL)
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event) => {
-      if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') {
+    async function verifyFromUrl() {
+      try {
+        const params = new URLSearchParams(window.location.search)
+        const tokenFromUrl = params.get('token')
+        const emailFromUrl = params.get('email')
+
+        if (emailFromUrl) setEmail(emailFromUrl)
+        if (tokenFromUrl) setOtpToken(tokenFromUrl)
+
+        if (tokenFromUrl && emailFromUrl) {
+          // Verificar automáticamente el OTP recibido en la URL
+          const { data, error: verifyErr } = await supabase.auth.verifyOtp({
+            email: emailFromUrl,
+            token: tokenFromUrl,
+            type: 'recovery'
+          })
+
+          if (!verifyErr && data.session) {
+            setIsVerified(true)
+            setValidatingSession(false)
+            return
+          }
+        }
+
+        // Comprobar si ya existe sesión activa
+        const { data: sessionData } = await supabase.auth.getSession()
+        if (sessionData?.session) {
+          setIsVerified(true)
+        }
+      } catch (err) {
+        console.warn('Error verificando sesión:', err)
+      } finally {
         setValidatingSession(false)
       }
-    })
-
-    // Comprobar si ya existe sesión activa
-    supabase.auth.getSession().then(({ data }) => {
-      setValidatingSession(false)
-    })
-
-    return () => {
-      authListener.subscription.unsubscribe()
     }
+
+    verifyFromUrl()
   }, [])
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
@@ -51,17 +76,41 @@ export default function ResetPasswordPage() {
     setLoading(true)
 
     try {
-      const { error } = await supabase.auth.updateUser({
+      // Si la sesión no fue verificada automáticamente por la URL, verificar ahora
+      if (!isVerified) {
+        if (!email || !otpToken) {
+          setError('Por favor, ingresa tu correo y el código de verificación.')
+          setLoading(false)
+          return
+        }
+
+        const { data: verifyData, error: verifyErr } = await supabase.auth.verifyOtp({
+          email: email.trim().toLowerCase(),
+          token: otpToken.trim(),
+          type: 'recovery'
+        })
+
+        if (verifyErr || !verifyData.session) {
+          setError('El código de verificación o enlace ha expirado o es inválido.')
+          setLoading(false)
+          return
+        }
+
+        setIsVerified(true)
+      }
+
+      // Actualizar la clave
+      const { error: updateErr } = await supabase.auth.updateUser({
         password: newPassword
       })
 
-      if (error) {
-        setError(error.message || 'Error al actualizar la contraseña.')
+      if (updateErr) {
+        setError(updateErr.message || 'Error al actualizar la contraseña.')
       } else {
         setSuccess(true)
       }
     } catch (err: any) {
-      setError('Ocurrió un error inesperado.')
+      setError('Ocurrió un error inesperado al actualizar la contraseña.')
     } finally {
       setLoading(false)
     }
@@ -72,7 +121,7 @@ export default function ResetPasswordPage() {
       <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
         <div className="flex items-center gap-3 bg-white p-6 rounded-2xl shadow-xl">
           <Loader2 className="w-5 h-5 animate-spin text-orange-600" />
-          <span className="text-xs font-semibold text-gray-700">Validando sesión de recuperación...</span>
+          <span className="text-xs font-semibold text-gray-700">Validando enlace de recuperación...</span>
         </div>
       </div>
     )
@@ -124,7 +173,9 @@ export default function ResetPasswordPage() {
         ) : (
           <form onSubmit={handleUpdatePassword} className="space-y-4">
             <p className="text-xs text-gray-600 leading-relaxed text-center">
-              Ingresa y confirma tu nueva contraseña de acceso.
+              {isVerified
+                ? 'Ingresa tu nueva contraseña para actualizar el acceso a tu cuenta.'
+                : 'Ingresa tu correo, el código enviado por correo y tu nueva contraseña.'}
             </p>
 
             {error && (
@@ -132,6 +183,40 @@ export default function ResetPasswordPage() {
                 <AlertCircle className="w-4 h-4 flex-shrink-0 text-red-500" />
                 <span>{error}</span>
               </div>
+            )}
+
+            {!isVerified && (
+              <>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Correo Electrónico</label>
+                  <div className="relative">
+                    <Mail className="w-4 h-4 absolute left-3 top-3 text-gray-400" />
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="usuario@minerquim.cl"
+                      className="w-full pl-9 pr-3 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Código de Verificación (6 dígitos)</label>
+                  <div className="relative">
+                    <KeyRound className="w-4 h-4 absolute left-3 top-3 text-gray-400" />
+                    <input
+                      type="text"
+                      required
+                      value={otpToken}
+                      onChange={(e) => setOtpToken(e.target.value)}
+                      placeholder="Ej: 123456"
+                      className="w-full pl-9 pr-3 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900 tracking-widest font-mono"
+                    />
+                  </div>
+                </div>
+              </>
             )}
 
             <div>

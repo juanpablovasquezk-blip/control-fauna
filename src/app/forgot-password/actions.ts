@@ -58,27 +58,22 @@ export async function requestPasswordResetAction(email: string, origin: string):
       options: { redirectTo: redirectUrl }
     })
 
-    if (linkErr || !linkData?.properties?.action_link) {
+    if (linkErr || !linkData?.properties?.email_otp) {
       console.error('Error generando recovery link:', linkErr)
       return { 
         success: false, 
-        message: `Error al generar el enlace de recuperación: ${linkErr?.message || 'Token no generado'}` 
+        message: `Error al generar el token de recuperación: ${linkErr?.message || 'Token no generado'}` 
       }
     }
 
-    let resetUrl = linkData.properties.action_link
-
-    // Reemplazar localhost:3000 por el origen real de la aplicación desplegada
-    if (origin && !origin.includes('localhost:3000')) {
-      resetUrl = resetUrl.replaceAll('http://localhost:3000', origin)
-      resetUrl = resetUrl.replaceAll('http://127.0.0.1:3000', origin)
-    }
+    const otpToken = linkData.properties.email_otp
+    const resetUrl = `${origin}/reset-password?token=${otpToken}&email=${encodeURIComponent(targetEmail)}`
 
     // 3. Enviar correo corporativo vía SMTP
     const transporter = createSmtpTransporter()
     const fromName = process.env.SMTP_FROM_NAME || 'Control Fauna Minerquim'
     const fromEmail = process.env.SMTP_FROM_EMAIL || 'no-reply@minerquim.cl'
-    const htmlContent = generatePasswordResetEmailHtml(resetUrl)
+    const htmlContent = generatePasswordResetEmailHtml(resetUrl, otpToken)
 
     try {
       await transporter.sendMail({

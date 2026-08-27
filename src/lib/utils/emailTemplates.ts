@@ -147,7 +147,7 @@ export function generateFenceDamageEmailHtml(params: FenceDamageEmailParams): st
   `.trim()
 }
 
-export function generatePasswordResetEmailHtml(resetUrl: string): string {
+export function generatePasswordResetEmailHtml(resetUrl: string, otpToken?: string): string {
   return `
 <!DOCTYPE html>
 <html lang="es">
@@ -176,24 +176,34 @@ export function generatePasswordResetEmailHtml(resetUrl: string): string {
       </h2>
 
       <p style="margin: 0 0 20px 0; font-size: 14px; line-height: 1.5; color: #4b5563;">
-        Hemos recibido una solicitud para cambiar la contraseña de tu cuenta registrada en el sistema. Haz clic en el botón a continuación para ingresar tu nueva contraseña:
+        Hemos recibido una solicitud para cambiar la contraseña de tu cuenta. Haz clic en el botón para ingresar directamente a definir tu nueva clave:
       </p>
 
       <div style="margin: 24px 0;">
-        <a href="${resetUrl}" target="_blank" style="display: inline-block; background-color: #ea580c; color: #ffffff; font-size: 14px; font-weight: 700; text-decoration: none; padding: 12px 28px; border-radius: 8px; box-shadow: 0 2px 4px rgba(234, 88, 12, 0.3);">
+        <a href="${resetUrl}" target="_blank" style="display: inline-block; background-color: #ea580c; color: #ffffff; font-size: 14px; font-weight: 700; text-decoration: none; padding: 14px 32px; border-radius: 8px; box-shadow: 0 2px 4px rgba(234, 88, 12, 0.3);">
           Restablecer Mi Contraseña
         </a>
       </div>
 
-      <p style="margin: 20px 0 0 0; font-size: 12px; color: #6b7280; line-height: 1.4;">
-        Si el botón no funciona, copia y pega el siguiente enlace en tu navegador:<br>
+      ${
+        otpToken
+          ? `
+      <div style="margin: 20px 0; background-color: #f9fafb; border: 1px dashed #d1d5db; padding: 12px; border-radius: 8px; display: inline-block;">
+        <span style="font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: 700; display: block; margin-bottom: 4px;">Código de Verificación Seguro</span>
+        <span style="font-size: 22px; font-weight: 800; color: #111827; letter-spacing: 4px; font-family: monospace;">${otpToken}</span>
+      </div>`
+          : ''
+      }
+
+      <p style="margin: 16px 0 0 0; font-size: 11px; color: #6b7280; line-height: 1.4;">
+        Si el botón no abre automáticamente, puedes usar este enlace directo en tu navegador:<br>
         <a href="${resetUrl}" style="color: #ea580c; word-break: break-all;">${resetUrl}</a>
       </p>
 
       <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #f3f4f6; text-align: left;">
         <p style="margin: 0; font-size: 11px; color: #9ca3af;">
-          • Este enlace es de uso único y vencerá automáticamente por seguridad.<br>
-          • Si no solicitaste este cambio, no te preocupes; tu cuenta y contraseña actual se mantendrán seguras.
+          • Este enlace es de uso único y vencimiento automático por seguridad.<br>
+          • Si no solicitaste este cambio, puedes ignorar este mensaje de forma segura.
         </p>
       </div>
     </div>
