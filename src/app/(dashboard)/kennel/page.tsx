@@ -7,7 +7,7 @@ import { KennelRecord, KennelCleaning } from '@/types'
 import { Dog, Sparkles, AlertTriangle, Plus, Clock, CheckCircle2, Camera } from 'lucide-react'
 import { createKennelCleaningAction, getKennelDataAction } from './actions'
 import { uploadImageFile } from '@/lib/utils/uploadHelpers'
-import { sendKennelCleaningWhatsAppAlert } from '@/lib/utils/whatsapp'
+import { sendKennelCleaningWhatsAppAction } from '@/app/(dashboard)/settings/whatsappActions'
 import { formatFreeText } from '@/lib/utils/formatters'
 
 function formatKennelDate(entryDatetime?: string): string {
@@ -151,7 +151,7 @@ export default function KennelPage() {
 
       // Trigger WhatsApp notification (asynchronous & silent)
       const selectedOp = operators.find(op => op.id === targetOperatorId) || profile
-      sendKennelCleaningWhatsAppAlert({
+      sendKennelCleaningWhatsAppAction({
         cleaning_type: cleaningType,
         operator_name: selectedOp?.full_name || profile.full_name || 'Operador',
         animal_count: activeKennels.length,

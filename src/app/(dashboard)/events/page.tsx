@@ -31,13 +31,13 @@ import {
 import { formatFreeText } from '@/lib/utils/formatters'
 import { createExternalHandoverAction, deleteEventAction } from './actions'
 import { 
-  sendActivationWhatsAppAlert, 
-  sendProcedureClosureWhatsAppAlert,
-  sendCapturedAnimalWhatsAppAlert,
-  sendFenceDamageWhatsAppAlert, 
-  sendFenceRepairWhatsAppAlert,
-  sendExternalHandoverWhatsAppAlert 
-} from '@/lib/utils/whatsapp'
+  sendActivationWhatsAppAction, 
+  sendProcedureClosureWhatsAppAction,
+  sendCapturedAnimalWhatsAppAction,
+  sendFenceDamageWhatsAppAction, 
+  sendFenceRepairWhatsAppAction,
+  sendExternalHandoverWhatsAppAction 
+} from '@/app/(dashboard)/settings/whatsappActions'
 import { sendFenceDamageEmailAction } from '@/app/(dashboard)/settings/emailActions'
 
 export interface ClosureAnimalForm {
@@ -354,7 +354,7 @@ export default function EventsPage() {
       // Trigger WhatsApp notification (asynchronous & silent)
       const selectedClient = clients.find(c => c.id === handoverClientId)
       const selectedOperator = operators.find(op => op.id === selectedOpId)
-      sendExternalHandoverWhatsAppAlert({
+      sendExternalHandoverWhatsAppAction({
         event_code: result.event?.event_code || 'FAU-EXT',
         handover_entity: formattedEntity,
         handover_person_name: formattedPerson,
@@ -478,7 +478,7 @@ export default function EventsPage() {
       // Trigger WhatsApp notification (asynchronous & silent)
       const selectedClient = clients.find(c => c.id === clientId)
       const selectedOperator = operators.find(op => op.id === selectedOperatorId)
-      sendActivationWhatsAppAlert({
+      sendActivationWhatsAppAction({
         event_code: code,
         client_name: selectedClient?.name || 'DGAC',
         requested_by: formattedRequestedBy,
@@ -929,7 +929,7 @@ export default function EventsPage() {
       const selectedOperator = operators.find(op => op.id === showCloseModal.operator_id)
 
       // Mensaje 1: Resumen de Cierre de Procedimiento
-      sendProcedureClosureWhatsAppAlert({
+      sendProcedureClosureWhatsAppAction({
         client_name: selectedClient?.name || 'DGAC',
         airport_zone: showCloseModal.airport_zone,
         general_result: closureType as string,
@@ -947,7 +947,7 @@ export default function EventsPage() {
           const item = closureAnimals[i]
           const photoUrl = savedAnimalPhotoUrls[i] || ''
 
-          sendCapturedAnimalWhatsAppAlert({
+          sendCapturedAnimalWhatsAppAction({
             species: item.species,
             sex: item.sex,
             size: item.size,
@@ -964,7 +964,7 @@ export default function EventsPage() {
       // Mensaje 3 & 4: Daño en Reja y Reparación con Fotos Separadas (si aplica)
       if (hasFenceDamage) {
         // Mensaje 3: Reporte de Daño en Reja con Foto del Daño
-        sendFenceDamageWhatsAppAlert({
+        sendFenceDamageWhatsAppAction({
           location: cleanFenceLocation,
           damage_description: damageDescription,
           damage_photo_url: damagePhotoUrl,
@@ -974,7 +974,7 @@ export default function EventsPage() {
         }).catch(err => console.warn('Fence damage WhatsApp alert error:', err))
 
         // Mensaje 4: Reparación de Cerco Perimetral con Foto de la Reparación
-        sendFenceRepairWhatsAppAlert({
+        sendFenceRepairWhatsAppAction({
           location: cleanFenceLocation,
           repair_description: repairDescription || damageDescription,
           repair_photo_url: repairPhotoUrl,

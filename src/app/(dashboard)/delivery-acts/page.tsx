@@ -7,7 +7,7 @@ import { DeliveryAct, Client, AnimalRecord } from '@/types'
 import { FileCheck, Printer, Camera, Plus, FileText, CheckCircle, Eye, X, Trash2 } from 'lucide-react'
 import { createDeliveryActAction, getDeliveryActsDataAction, updateSignedScanAction, deleteDeliveryActAction } from './actions'
 import { formatFreeText, formatRut } from '@/lib/utils/formatters'
-import { sendDeliveryActWhatsAppAlert } from '@/lib/utils/whatsapp'
+import { sendDeliveryActWhatsAppAction } from '@/app/(dashboard)/settings/whatsappActions'
 import { uploadImageFile } from '@/lib/utils/uploadHelpers'
 
 const toTitleCase = formatFreeText
@@ -156,7 +156,7 @@ export default function DeliveryActsPage() {
       const selectedClient = clients.find(c => c.id === targetClientId)
       const selectedOp = operators.find(op => op.id === finalDeliveringUser)
 
-      sendDeliveryActWhatsAppAlert({
+      sendDeliveryActWhatsAppAction({
         act_number: actNumber,
         client_name: selectedClient?.name || 'DGAC',
         receiver_name: receiverName,

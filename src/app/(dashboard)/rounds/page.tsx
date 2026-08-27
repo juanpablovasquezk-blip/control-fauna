@@ -7,10 +7,10 @@ import { Round } from '@/types'
 import { Compass, AlertTriangle, Camera, Plus, CheckCircle, Clock, Filter, Calendar, Search, Eye, X, Wrench, User, FileText, Trash2 } from 'lucide-react'
 import { formatFreeText } from '@/lib/utils/formatters'
 import { 
-  sendRoundWhatsAppAlert,
-  sendFenceDamageWhatsAppAlert,
-  sendFenceRepairWhatsAppAlert
-} from '@/lib/utils/whatsapp'
+  sendRoundWhatsAppAction,
+  sendFenceDamageWhatsAppAction,
+  sendFenceRepairWhatsAppAction
+} from '@/app/(dashboard)/settings/whatsappActions'
 import { uploadImageFile } from '@/lib/utils/uploadHelpers'
 import { sendFenceDamageEmailAction } from '@/app/(dashboard)/settings/emailActions'
 import { deleteRoundAction } from './actions'
@@ -331,7 +331,7 @@ export default function RoundsPage() {
       const selectedOperator = operators.find(op => op.id === selectedOperatorId)
       
       // Mensaje 1: Ronda Perimetral Registrada
-      sendRoundWhatsAppAlert({
+      sendRoundWhatsAppAction({
         round_code: roundData?.round_code || (roundData?.id ? `RND-${roundData.id.slice(0, 6)}` : 'Ronda'),
         operator_name: selectedOperator?.full_name || profile?.full_name || 'Operador',
         airport_zone: zone,
@@ -343,13 +343,13 @@ export default function RoundsPage() {
       if (hasFenceIncident) {
         const fenceLocation = formattedLocation ? `${zone} - ${formattedLocation}` : zone
 
-        sendFenceDamageWhatsAppAlert({
+        sendFenceDamageWhatsAppAction({
           location: fenceLocation,
           damage_description: formatFreeText(damageDescription),
           damage_photo_url: finalDamagePhotoUrls[0],
         }).catch(err => console.warn('Round Fence damage WhatsApp alert error:', err))
 
-        sendFenceRepairWhatsAppAlert({
+        sendFenceRepairWhatsAppAction({
           location: fenceLocation,
           repair_description: formatFreeText(actionTaken) || formatFreeText(damageDescription),
           repair_photo_url: finalRepairPhotoUrls[0],
