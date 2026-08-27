@@ -5,16 +5,17 @@ import nodemailer from 'nodemailer'
 import { generatePasswordResetEmailHtml } from '@/lib/utils/emailTemplates'
 
 function createSmtpTransporter() {
-  const host = process.env.SMTP_HOST || 'mail.minerquim.cl'
+  const host = (process.env.SMTP_HOST || 'mail.minerquim.cl').trim()
   const port = parseInt(process.env.SMTP_PORT || '465', 10)
-  const user = process.env.SMTP_USER || 'no-reply@minerquim.cl'
-  const pass = process.env.SMTP_PASS || 'Empresa_1000'
+  const user = (process.env.SMTP_USER || 'no-reply@minerquim.cl').trim()
+  const pass = (process.env.SMTP_PASS || 'Empresa_1000').trim()
 
   return nodemailer.createTransport({
     host,
     port,
     secure: port === 465,
     auth: { user, pass },
+    authMethod: 'PLAIN',
     tls: { rejectUnauthorized: false }
   })
 }
