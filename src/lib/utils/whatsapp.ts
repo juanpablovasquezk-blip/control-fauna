@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/client'
+import { supabaseAdmin } from '@/lib/supabase/admin'
 import { formatFreeText } from '@/lib/utils/formatters'
 
 export interface WhatsAppConfig {
@@ -11,8 +11,7 @@ export interface WhatsAppConfig {
 
 export async function getWhatsAppConfig(): Promise<WhatsAppConfig> {
   try {
-    const supabase = createClient()
-    const { data } = await supabase
+    const { data } = await supabaseAdmin
       .from('system_settings')
       .select('value')
       .eq('key', 'ultramsg_config')
