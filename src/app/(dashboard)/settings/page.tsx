@@ -13,6 +13,7 @@ import {
   createAirportZoneAction, updateAirportZoneAction, deleteAirportZoneAction,
   getWhatsAppSettingsAction, saveWhatsAppSettingsAction, sendTestWhatsAppAction
 } from './actions'
+import { getEmailSettingsAction, saveEmailSettingsAction, sendTestEmailAction } from './emailActions'
 
 export default function SettingsPage() {
   const [profiles, setProfiles] = useState<any[]>([])
@@ -31,6 +32,11 @@ export default function SettingsPage() {
   const [ultramsgInstance, setUltramsgInstance] = useState('')
   const [defaultGroupId, setDefaultGroupId] = useState('')
   const [testingWa, setTestingWa] = useState(false)
+
+  // Email Config State
+  const [emailEnabled, setEmailEnabled] = useState(true)
+  const [emailCc, setEmailCc] = useState('juanpablo.vasquez@minerquim.cl')
+  const [testingEmail, setTestingEmail] = useState(false)
 
   // Modals visibility
   const [showUserModal, setShowUserModal] = useState(false)
@@ -107,6 +113,13 @@ export default function SettingsPage() {
       setDefaultGroupId(waRes.config.default_group_id || '')
     }
 
+    // Email Settings
+    const emailRes = await getEmailSettingsAction()
+    if (emailRes.success && emailRes.config) {
+      setEmailEnabled(emailRes.config.enabled ?? true)
+      setEmailCc(Array.isArray(emailRes.config.cc_emails) ? emailRes.config.cc_emails.join(', ') : 'juanpablo.vasquez@minerquim.cl')
+    }
+
     setLoading(false)
   }
 
@@ -150,6 +163,49 @@ export default function SettingsPage() {
       alert('❌ Error de conexión: ' + err.message)
     } finally {
       setTestingWa(false)
+    }
+  }
+
+  const handleSaveEmailConfig = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSaving(true)
+    try {
+      const cc_emails = emailCc
+        .split(',')
+        .map(email => email.trim())
+        .filter(email => email.length > 0)
+
+      const res = await saveEmailSettingsAction({
+        enabled: emailEnabled,
+        cc_emails,
+      })
+      if (!res.success) throw new Error(res.error)
+      alert('Configuración de correo electrónico guardada con éxito.')
+    } catch (err: any) {
+      alert('Error al guardar configuración de correo: ' + err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleTestEmail = async () => {
+    const firstCc = emailCc.split(',')[0]?.trim()
+    if (!firstCc) {
+      alert('Debe ingresar al menos un correo electrónico en CC para realizar la prueba.')
+      return
+    }
+    setTestingEmail(true)
+    try {
+      const res = await sendTestEmailAction(firstCc)
+      if (res.success) {
+        alert(`✅ Correo de prueba enviado con éxito a ${firstCc}!`)
+      } else {
+        alert('❌ Error al enviar correo de prueba: ' + res.error)
+      }
+    } catch (err: any) {
+      alert('❌ Error de conexión: ' + err.message)
+    } finally {
+      setTestingEmail(false)
     }
   }
 
@@ -635,7 +691,8 @@ export default function SettingsPage() {
 
       {/* Tab 4: Integrations */}
       {activeTab === 'integrations' && (
-        <form onSubmit={handleSaveWhatsAppConfig} className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-4 max-w-xl">
+        <div className="space-y-6 max-w-xl">
+          <form onSubmit={handleSaveWhatsAppConfig} className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-4 max-w-xl">
           <div className="flex items-center justify-between border-b pb-3">
             <div>
               <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
@@ -712,7 +769,70 @@ export default function SettingsPage() {
             </button>
           </div>
         </form>
-      )}
+
+        {/* Formulario de Configuración de Correo Electrónico */}
+        <form onSubmit={handleSaveEmailConfig} className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-4 max-w-xl">
+          <div className="flex items-center justify-between border-b pb-3">
+            <div>
+              <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                <Mail className="w-5 h-5 text-blue-600" />
+                <span>Configuración de Correo Electrónico (Notificaciones de Daño)</span>
+              </h3>
+              <p className="text-[11px] text-gray-500 mt-0.5">Envío automático a DGAC y correos en copia (CC)</p>
+            </div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={emailEnabled}
+                onChange={(e) => setEmailEnabled(e.target.checked)}
+                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+              />
+              <span className="text-xs font-bold text-gray-800">Alertas Activas</span>
+            </label>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">Correos en Copia (CC) *</label>
+            <input
+              type="text"
+              required
+              value={emailCc}
+              onChange={(e) => setEmailCc(e.target.value)}
+              placeholder="juanpablo.vasquez@minerquim.cl, otro@minerquim.cl"
+              className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl text-xs text-gray-900 font-medium focus:bg-white focus:ring-2 focus:ring-blue-500"
+            />
+            <p className="text-[10px] text-gray-500 mt-1">
+              Ingrese los correos separados por coma. Todas las notificaciones enviadas a la DGAC llevarán copia (CC) a estas direcciones.
+            </p>
+          </div>
+
+          <div className="p-3 bg-gray-50 border border-gray-200 rounded-xl text-[11px] text-gray-600 space-y-1">
+            <p className="font-bold text-gray-800">ℹ️ Configuración Servidor SMTP (Minerquim):</p>
+            <p>Servidor: <code className="bg-gray-200 px-1 py-0.5 rounded">mail.minerquim.cl</code> (Puerto 465 SSL)</p>
+            <p>Remitente: <code className="bg-gray-200 px-1 py-0.5 rounded">no-reply@minerquim.cl</code></p>
+          </div>
+
+          <div className="pt-3 border-t border-gray-100 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={handleTestEmail}
+              disabled={testingEmail}
+              className="px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 text-xs font-bold rounded-xl transition flex items-center gap-1.5"
+            >
+              <span>{testingEmail ? 'Enviando Correo...' : '✉️ Enviar Correo de Prueba'}</span>
+            </button>
+
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow transition"
+            >
+              {saving ? 'Guardando...' : 'Guardar Configuración Correo'}
+            </button>
+          </div>
+        </form>
+      </div>
+    )}
 
       {/* --- MODAL USUARIO --- */}
       {showUserModal && (

@@ -38,6 +38,7 @@ import {
   sendFenceRepairWhatsAppAlert,
   sendExternalHandoverWhatsAppAlert 
 } from '@/lib/utils/whatsapp'
+import { sendFenceDamageEmailAction } from '@/app/(dashboard)/settings/emailActions'
 
 export interface ClosureAnimalForm {
   species: 'Perro' | 'Gato'
@@ -981,6 +982,21 @@ export default function EventsPage() {
           close_time: cleanCloseTime,
           client_group_id: selectedClient?.whatsapp_group_id,
         }).catch(err => console.warn('Fence repair WhatsApp alert error:', err))
+
+        // Envío de correo electrónico a la DGAC y CC
+        sendFenceDamageEmailAction({
+          source: 'event',
+          sourceCode: showCloseModal.event_code,
+          date: cleanCloseDate,
+          operatorName: selectedOperator?.full_name || profile?.full_name || 'Operador',
+          zone: damageZone || showCloseModal.airport_zone,
+          specificLocation: damageLocation ? `${damageZone} - ${damageLocation}` : showCloseModal.specific_location,
+          damageDescription: formatFreeText(damageDescription),
+          damagePhotoUrls: damagePhotoUrl ? [damagePhotoUrl] : [],
+          actionTaken: formatFreeText(repairDescription || damageDescription),
+          wasRepaired: true,
+          repairPhotoUrls: repairPhotoUrl ? [repairPhotoUrl] : [],
+        }).catch(err => console.warn('Fence damage Email alert error:', err))
       }
 
       alert(`Procedimiento ${showCloseModal.event_code} cerrado exitosamente.`)

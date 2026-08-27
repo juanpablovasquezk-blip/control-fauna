@@ -7,6 +7,8 @@ import { Round } from '@/types'
 import { Compass, AlertTriangle, Camera, Plus, CheckCircle, Clock, Filter, Calendar, Search, Eye, X, Wrench, User, FileText } from 'lucide-react'
 import { formatFreeText } from '@/lib/utils/formatters'
 import { sendRoundWhatsAppAlert } from '@/lib/utils/whatsapp'
+import { uploadImageFile } from '@/lib/utils/uploadHelpers'
+import { sendFenceDamageEmailAction } from '@/app/(dashboard)/settings/emailActions'
 
 export default function RoundsPage() {
   const [rounds, setRounds] = useState<Round[]>([])
@@ -29,6 +31,8 @@ export default function RoundsPage() {
   const [wasRepaired, setWasRepaired] = useState(false)
   const [damagePhotos, setDamagePhotos] = useState<string[]>([])
   const [repairPhotos, setRepairPhotos] = useState<string[]>([])
+  const [damageFiles, setDamageFiles] = useState<File[]>([])
+  const [repairFiles, setRepairFiles] = useState<File[]>([])
   const [saving, setSaving] = useState(false)
 
   const isAdminOrSuper = profile && ['admin', 'supervisor'].includes(profile.role)
@@ -126,7 +130,14 @@ export default function RoundsPage() {
     const files = e.target.files
     if (!files) return
 
-    Array.from(files).forEach(file => {
+    const newFiles = Array.from(files)
+    if (target === 'damage') {
+      setDamageFiles(prev => [...prev, ...newFiles].slice(0, 3))
+    } else {
+      setRepairFiles(prev => [...prev, ...newFiles].slice(0, 3))
+    }
+
+    newFiles.forEach(file => {
       const reader = new FileReader()
       reader.onload = (event) => {
         if (event.target?.result) {
@@ -151,6 +162,8 @@ export default function RoundsPage() {
     setWasRepaired(false)
     setDamagePhotos([])
     setRepairPhotos([])
+    setDamageFiles([])
+    setRepairFiles([])
     setOperatorId(profile ? profile.id : '')
     setShowModal(true)
   }
@@ -183,6 +196,30 @@ export default function RoundsPage() {
         ? `[Lugar: ${formattedLocation}] ${formattedObs}`.trim()
         : formattedObs
 
+      // Upload damage & repair photos to Supabase storage if provided
+      let finalDamagePhotoUrls: string[] = []
+      let finalRepairPhotoUrls: string[] = []
+
+      if (hasFenceIncident) {
+        if (damageFiles.length > 0) {
+          for (const file of damageFiles) {
+            const url = await uploadImageFile(file, 'fence_rounds/damage')
+            if (url) finalDamagePhotoUrls.push(url)
+          }
+        } else {
+          finalDamagePhotoUrls = damagePhotos
+        }
+
+        if (repairFiles.length > 0) {
+          for (const file of repairFiles) {
+            const url = await uploadImageFile(file, 'fence_rounds/repair')
+            if (url) finalRepairPhotoUrls.push(url)
+          }
+        } else {
+          finalRepairPhotoUrls = repairPhotos
+        }
+      }
+
       // 1. Insert Round
       const { data: roundData, error: roundError } = await supabase
         .from('rounds')
@@ -199,16 +236,39 @@ export default function RoundsPage() {
 
       if (roundError) throw roundError
 
-      // 2. Insert Fence Incident if toggle is ON
+      // 2. Insert Fence Incident if toggle is ON & Send Email Notification
       if (hasFenceIncident && roundData) {
+        const selectedOperator = operators.find(op => op.id === selectedOperatorId)
+        const operatorName = selectedOperator?.full_name || profile?.full_name || 'Operador'
+
+        let emailSent = false
+        try {
+          const emailRes = await sendFenceDamageEmailAction({
+            source: 'round',
+            sourceCode: `Ronda Perimetral (${zone})`,
+            date: new Date().toLocaleDateString('es-CL'),
+            operatorName,
+            zone,
+            specificLocation: formattedLocation,
+            damageDescription: formatFreeText(damageDescription),
+            damagePhotoUrls: finalDamagePhotoUrls,
+            actionTaken: formatFreeText(actionTaken),
+            wasRepaired,
+            repairPhotoUrls: finalRepairPhotoUrls,
+          })
+          emailSent = emailRes.success
+        } catch (emailErr) {
+          console.warn('Error enviando notificación por correo:', emailErr)
+        }
+
         await supabase.from('fence_incidents').insert({
           round_id: roundData.id,
           damage_description: formatFreeText(damageDescription),
           action_taken: formatFreeText(actionTaken),
           was_repaired: wasRepaired,
-          damage_photo_urls: damagePhotos,
-          repair_photo_urls: repairPhotos,
-          email_sent: true,
+          damage_photo_urls: finalDamagePhotoUrls,
+          repair_photo_urls: finalRepairPhotoUrls,
+          email_sent: emailSent,
         })
       }
 
@@ -241,6 +301,8 @@ export default function RoundsPage() {
     setWasRepaired(false)
     setDamagePhotos([])
     setRepairPhotos([])
+    setDamageFiles([])
+    setRepairFiles([])
   }
 
   // Helper for local YYYY-MM-DD date string
