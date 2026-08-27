@@ -49,7 +49,10 @@ export async function updateUserAction(formData: any) {
       rut: rut
     }
   }
-  if (email) authAttributes.email = email
+  if (email) {
+    authAttributes.email = email
+    authAttributes.email_confirm = true
+  }
   if (password && password.trim() !== '') authAttributes.password = password
 
   // Update in auth.users metadata, email & password

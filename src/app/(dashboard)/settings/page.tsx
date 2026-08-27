@@ -876,15 +876,14 @@ export default function SettingsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Correo Electrónico</label>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Correo Electrónico *</label>
                 <input
                   type="email"
                   required
-                  disabled={!!editingUser}
                   value={userEmail}
                   onChange={(e) => setUserEmail(e.target.value)}
                   placeholder="correo@minerquim.cl"
-                  className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded text-xs text-gray-900 disabled:opacity-60"
+                  className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded text-xs text-gray-900"
                 />
               </div>
 
