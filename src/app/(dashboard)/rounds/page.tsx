@@ -217,16 +217,16 @@ export default function RoundsPage() {
       alert('Debe seleccionar el operador / responsable.')
       return
     }
-    if (!zone) {
-      alert('Debe seleccionar la zona del aeródromo.')
-      return
-    }
-    if (!roundDate) {
+    if (isAdminOrSuper && !roundDate) {
       alert('Debe ingresar la fecha de la ronda.')
       return
     }
-    if (!roundTime) {
+    if (isAdminOrSuper && !roundTime) {
       alert('Debe ingresar la hora de la ronda.')
+      return
+    }
+    if (!zone) {
+      alert('Debe seleccionar la zona del aeródromo.')
       return
     }
     if (hasFenceIncident && !specificLocation.trim()) {
@@ -245,17 +245,17 @@ export default function RoundsPage() {
         ? `[Lugar: ${formattedLocation}] ${formattedObs}`.trim()
         : formattedObs
 
-      // Compute timestamps based on roundDate and roundTime
+      // Compute timestamps: admin can set custom date/time, standard operators use current timestamp
       let finalStartTime = new Date().toISOString()
       let finalEndTime = new Date().toISOString()
 
-      if (roundDate && roundTime) {
+      if (isAdminOrSuper && roundDate && roundTime) {
         const combined = new Date(`${roundDate}T${roundTime}:00`)
         if (!isNaN(combined.getTime())) {
           finalStartTime = combined.toISOString()
           finalEndTime = combined.toISOString()
         }
-      } else if (roundDate) {
+      } else if (isAdminOrSuper && roundDate) {
         const combined = new Date(`${roundDate}T12:00:00`)
         if (!isNaN(combined.getTime())) {
           finalStartTime = combined.toISOString()
@@ -680,34 +680,36 @@ export default function RoundsPage() {
                 </div>
               )}
 
-              {/* Fecha y Hora de la Ronda */}
-              <div className="bg-orange-50/60 p-3 rounded-xl border border-orange-100 space-y-2">
-                <span className="block font-bold text-orange-950 uppercase tracking-wider text-[10px]">
-                  Fecha y Hora de la Ronda {isAdminOrSuper && '(Modificable)'}
-                </span>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Fecha *</label>
-                    <input
-                      type="date"
-                      required
-                      value={roundDate}
-                      onChange={(e) => setRoundDate(e.target.value)}
-                      className="w-full p-2 bg-white border border-gray-300 rounded-lg text-xs font-medium focus:ring-2 focus:ring-orange-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Hora *</label>
-                    <input
-                      type="time"
-                      required
-                      value={roundTime}
-                      onChange={(e) => setRoundTime(e.target.value)}
-                      className="w-full p-2 bg-white border border-gray-300 rounded-lg text-xs font-medium focus:ring-2 focus:ring-orange-500"
-                    />
+              {/* Fecha y Hora de la Ronda (Solo Admin / Supervisor para registros históricos) */}
+              {isAdminOrSuper && (
+                <div className="bg-orange-50/60 p-3 rounded-xl border border-orange-100 space-y-2">
+                  <span className="block font-bold text-orange-950 uppercase tracking-wider text-[10px]">
+                    Fecha y Hora de la Ronda (Registro Histórico)
+                  </span>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">Fecha *</label>
+                      <input
+                        type="date"
+                        required
+                        value={roundDate}
+                        onChange={(e) => setRoundDate(e.target.value)}
+                        className="w-full p-2 bg-white border border-gray-300 rounded-lg text-xs font-medium focus:ring-2 focus:ring-orange-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">Hora *</label>
+                      <input
+                        type="time"
+                        required
+                        value={roundTime}
+                        onChange={(e) => setRoundTime(e.target.value)}
+                        className="w-full p-2 bg-white border border-gray-300 rounded-lg text-xs font-medium focus:ring-2 focus:ring-orange-500"
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">Zona del Aeródromo *</label>
