@@ -118,7 +118,12 @@ function formatDateTime(dateStr?: string, timeStr?: string): string {
     dateFormatted = `${day}-${month}-${year}`
   }
 
-  const timeFormatted = timeStr || new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })
+  const timeFormatted = timeStr || new Date().toLocaleTimeString('es-CL', {
+    timeZone: 'America/Santiago',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  })
   return `${dateFormatted} ${timeFormatted}`
 }
 

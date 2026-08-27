@@ -102,10 +102,12 @@ export async function startPestControlShiftAction(params: {
     if (error) throw error
 
     // Send WhatsApp notification
-    const startedAtStr = now.toLocaleDateString('es-CL', {
+    const startedAtStr = now.toLocaleString('es-CL', {
+      timeZone: 'America/Santiago',
       day: '2-digit', month: '2-digit', year: 'numeric',
-      hour: '2-digit', minute: '2-digit'
-    })
+      hour: '2-digit', minute: '2-digit',
+      hour12: false
+    }).replace(',', '')
 
     await sendCazaShiftStartWhatsAppAlert({
       operator_name: operator?.full_name || 'Operador Caza',
@@ -175,8 +177,18 @@ export async function closePestControlShiftAction(params: {
     const mins = durationMinutes % 60
     const durationStr = hours > 0 ? `${hours} hrs ${mins} mins` : `${mins} mins`
 
-    const startedAtStr = startedAt.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })
-    const endedAtStr = now.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })
+    const startedAtStr = startedAt.toLocaleTimeString('es-CL', { 
+      timeZone: 'America/Santiago', 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: false
+    })
+    const endedAtStr = now.toLocaleTimeString('es-CL', { 
+      timeZone: 'America/Santiago', 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: false
+    })
 
     // Send WhatsApp Alert
     await sendCazaShiftEndWhatsAppAlert({
