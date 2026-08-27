@@ -318,15 +318,17 @@ export async function sendTestWhatsAppAction(params: {
   instance_id: string
   token: string
   to: string
+  group_name?: string
 }) {
-  const { instance_id, token, to } = params
+  const { instance_id, token, to, group_name } = params
   if (!instance_id || !token || !to) {
     return { success: false, error: 'Debe ingresar Instance ID, Token y Grupo/Número de destino.' }
   }
 
   try {
     const endpoint = `https://api.ultramsg.com/${instance_id}/messages/chat`
-    const body = `🧪 *MENSAJE DE PRUEBA CONTROL DE FAUNA*\nLas notificaciones automáticas por WhatsApp se han configurado correctamente.`
+    const groupLabel = group_name ? ` (${group_name})` : ''
+    const body = `🧪 *MENSAJE DE PRUEBA CONTROL DE FAUNA${groupLabel}*\nLas notificaciones automáticas por WhatsApp se han configurado correctamente para este grupo.`
     
     const response = await fetch(endpoint, {
       method: 'POST',

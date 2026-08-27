@@ -145,9 +145,9 @@ export default function SettingsPage() {
     }
   }
 
-  const handleTestWhatsApp = async () => {
-    if (!ultramsgInstance || !ultramsgToken || !defaultGroupId) {
-      alert('Debe ingresar Instance ID, Token y el ID del Grupo por Defecto para enviar un mensaje de prueba.')
+  const handleTestWhatsApp = async (targetGroup: string, groupName: string) => {
+    if (!ultramsgInstance || !ultramsgToken || !targetGroup) {
+      alert(`Debe ingresar Instance ID, Token y el ID del ${groupName} para enviar el mensaje de prueba.`)
       return
     }
     setTestingWa(true)
@@ -155,10 +155,11 @@ export default function SettingsPage() {
       const res = await sendTestWhatsAppAction({
         instance_id: ultramsgInstance,
         token: ultramsgToken,
-        to: defaultGroupId,
+        to: targetGroup,
+        group_name: groupName,
       })
       if (res.success) {
-        alert('✅ Mensaje de prueba enviado con éxito a WhatsApp!')
+        alert(`✅ Mensaje de prueba enviado con éxito al ${groupName}!`)
       } else {
         alert('❌ Error al enviar mensaje de prueba: ' + res.error)
       }
@@ -768,20 +769,30 @@ export default function SettingsPage() {
             </p>
           </div>
 
-          <div className="pt-3 border-t border-gray-100 flex items-center justify-between">
-            <button
-              type="button"
-              onClick={handleTestWhatsApp}
-              disabled={testingWa}
-              className="px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold rounded-xl transition flex items-center gap-1.5"
-            >
-              <span>{testingWa ? 'Enviando...' : '🧪 Enviar Mensaje de Prueba'}</span>
-            </button>
+          <div className="pt-4 border-t border-gray-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => handleTestWhatsApp(defaultGroupId, 'Grupo Global / Canil')}
+                disabled={testingWa || !defaultGroupId}
+                className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold rounded-xl transition flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <span>🧪 Probar Grupo Global</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleTestWhatsApp(cazaGroupId, 'Grupo Caza')}
+                disabled={testingWa || !cazaGroupId}
+                className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold rounded-xl transition flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <span>🎯 Probar Grupo Caza</span>
+              </button>
+            </div>
 
             <button
               type="submit"
               disabled={saving}
-              className="px-5 py-2 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold rounded-xl shadow transition"
+              className="px-5 py-2 bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs rounded-xl shadow transition disabled:opacity-50"
             >
               {saving ? 'Guardando...' : 'Guardar Configuración WhatsApp'}
             </button>
