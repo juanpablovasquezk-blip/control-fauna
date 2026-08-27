@@ -66,7 +66,13 @@ export async function requestPasswordResetAction(email: string, origin: string):
       }
     }
 
-    const resetUrl = linkData.properties.action_link
+    let resetUrl = linkData.properties.action_link
+
+    // Reemplazar localhost:3000 por el origen real de la aplicación desplegada
+    if (origin && !origin.includes('localhost:3000')) {
+      resetUrl = resetUrl.replaceAll('http://localhost:3000', origin)
+      resetUrl = resetUrl.replaceAll('http://127.0.0.1:3000', origin)
+    }
 
     // 3. Enviar correo corporativo vía SMTP
     const transporter = createSmtpTransporter()
