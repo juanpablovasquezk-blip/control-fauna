@@ -40,26 +40,35 @@ export async function createUserAction(formData: any) {
 }
 
 export async function updateUserAction(formData: any) {
-  const { id, fullName, role, active, rut } = formData
+  const { id, email, fullName, role, active, rut } = formData
 
-  // Update in auth.users metadata
-  const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(id, {
+  const authAttributes: any = {
     user_metadata: {
       full_name: fullName,
       role: role,
       rut: rut
     }
-  })
+  }
+  if (email) authAttributes.email = email
+
+  // Update in auth.users metadata & email
+  const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(id, authAttributes)
+  if (authError) {
+    return { success: false, error: authError.message }
+  }
 
   // Update in public.profiles
+  const profileUpdate: any = {
+    full_name: fullName,
+    role: role,
+    rut: rut || '',
+    active: active
+  }
+  if (email) profileUpdate.email = email
+
   const { error: profileError } = await supabaseAdmin
     .from('profiles')
-    .update({
-      full_name: fullName,
-      role: role,
-      rut: rut || '',
-      active: active
-    })
+    .update(profileUpdate)
     .eq('id', id)
 
   if (profileError) {
@@ -78,8 +87,30 @@ export async function deleteUserAction(id: string) {
 }
 
 export async function createClientAction(formData: any) {
-  const { name, rut, contact_name, contact_email, contact_phone, address, is_contract, can_request_services, notification_emails, whatsapp_group_id } = formData
-  
+  const {
+    name,
+    rut,
+    contact_name,
+    contact_email,
+    contact_phone,
+    address,
+    is_contract,
+    is_contract_client,
+    can_request_services,
+    can_request_service,
+    notification_emails,
+    whatsapp_group_id
+  } = formData
+
+  const isContractVal = is_contract_client !== undefined ? is_contract_client : !!is_contract
+  const canRequestVal = can_request_service !== undefined ? can_request_service : (can_request_services !== undefined ? can_request_services : true)
+
+  const parsedNotifEmails = Array.isArray(notification_emails)
+    ? notification_emails
+    : (typeof notification_emails === 'string'
+      ? notification_emails.split(',').map((e: string) => e.trim()).filter(Boolean)
+      : [])
+
   const { data, error } = await supabaseAdmin
     .from('clients')
     .insert([{
@@ -89,9 +120,9 @@ export async function createClientAction(formData: any) {
       contact_email,
       contact_phone,
       address,
-      is_contract,
-      can_request_services,
-      notification_emails: notification_emails ? notification_emails.split(',').map((e: string) => e.trim()) : [],
+      is_contract_client: isContractVal,
+      can_request_service: canRequestVal,
+      notification_emails: parsedNotifEmails,
       whatsapp_group_id
     }])
     .select()
@@ -101,8 +132,30 @@ export async function createClientAction(formData: any) {
 }
 
 export async function updateClientAction(id: string, formData: any) {
-  const { name, rut, contact_name, contact_email, contact_phone, address, is_contract, can_request_services, notification_emails, whatsapp_group_id } = formData
-  
+  const {
+    name,
+    rut,
+    contact_name,
+    contact_email,
+    contact_phone,
+    address,
+    is_contract,
+    is_contract_client,
+    can_request_services,
+    can_request_service,
+    notification_emails,
+    whatsapp_group_id
+  } = formData
+
+  const isContractVal = is_contract_client !== undefined ? is_contract_client : !!is_contract
+  const canRequestVal = can_request_service !== undefined ? can_request_service : (can_request_services !== undefined ? can_request_services : true)
+
+  const parsedNotifEmails = Array.isArray(notification_emails)
+    ? notification_emails
+    : (typeof notification_emails === 'string'
+      ? notification_emails.split(',').map((e: string) => e.trim()).filter(Boolean)
+      : [])
+
   const { error } = await supabaseAdmin
     .from('clients')
     .update({
@@ -112,9 +165,9 @@ export async function updateClientAction(id: string, formData: any) {
       contact_email,
       contact_phone,
       address,
-      is_contract,
-      can_request_services,
-      notification_emails: notification_emails ? notification_emails.split(',').map((e: string) => e.trim()) : [],
+      is_contract_client: isContractVal,
+      can_request_service: canRequestVal,
+      notification_emails: parsedNotifEmails,
       whatsapp_group_id
     })
     .eq('id', id)

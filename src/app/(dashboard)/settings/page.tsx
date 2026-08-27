@@ -184,6 +184,7 @@ export default function SettingsPage() {
         // Edit User
         const res = await updateUserAction({
           id: editingUser.id,
+          email: userEmail,
           fullName: userFullName,
           rut: userRut,
           role: userRole,
