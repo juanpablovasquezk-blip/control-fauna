@@ -9,15 +9,16 @@ export function Navbar() {
   if (!profile) return null
 
   return (
-    <header className="h-14 bg-white border-b border-gray-200 px-3 sm:px-4 flex items-center justify-between sticky top-0 z-40 print:hidden min-w-0">
-      {/* Brand logo for mobile screens */}
+    <header className="h-14 max-h-14 bg-white border-b border-gray-200 px-3 flex items-center justify-between sticky top-0 z-40 overflow-hidden print:hidden min-w-0">
+      {/* Brand logo for mobile screens - Strictly max 28% width & 20px height */}
       <div className="flex items-center gap-2 md:hidden min-w-0 overflow-hidden">
         <img 
           src="/logos/LOGO MINERQUIM.jpg" 
           alt="Minerquim" 
-          className="h-6 max-w-[100px] sm:max-w-[120px] object-contain flex-shrink-0" 
+          style={{ height: '20px', maxHeight: '20px', maxWidth: '28%', width: 'auto', objectFit: 'contain' }}
+          className="flex-shrink-0" 
         />
-        <span className="font-extrabold text-[10px] sm:text-xs text-orange-600 truncate flex-shrink-0">
+        <span className="font-extrabold text-[10px] text-orange-600 truncate flex-shrink-0">
           CONTROL FAUNA
         </span>
       </div>
