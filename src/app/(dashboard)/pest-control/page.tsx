@@ -164,7 +164,7 @@ export default function PestControlPage() {
 
     const totalAnimals = Number(rabbitsMale) + Number(rabbitsFemale) + Number(pigeons)
 
-    const formattedSector = formatFreeText(sector)
+    const formattedSector = sector.trim() ? formatFreeText(sector) : (totalAnimals === 0 ? 'General / Sin Caza' : 'Sector General')
     let finalObservations = observations.trim()
     if (totalAnimals === 0) {
       if (!noHuntingReason) {
@@ -195,7 +195,7 @@ export default function PestControlPage() {
         rabbits_male: Number(rabbitsMale),
         rabbits_female: Number(rabbitsFemale),
         pigeons: Number(pigeons),
-        method,
+        method: 'Estándar',
         observations: finalObservations,
         responsible_id: selectedOperatorId,
         record_date: isAdminOrSuper ? recordDate : new Date().toISOString().split('T')[0]
@@ -451,12 +451,12 @@ export default function PestControlPage() {
 
               {/* Sector */}
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Sector / Zona</label>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Sector / Zona (Opcional)</label>
                 <input
                   type="text"
-                  required
                   value={sector}
                   onChange={(e) => setSector(e.target.value)}
+                  placeholder="Ej: Pista 17R / Sector Norte"
                   list="sectors-list"
                   className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs font-medium"
                 />
@@ -532,17 +532,6 @@ export default function PestControlPage() {
                   )}
                 </div>
               )}
-
-              {/* Método */}
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Método / Autorización SAG</label>
-                <input
-                  type="text"
-                  value={method}
-                  onChange={(e) => setMethod(e.target.value)}
-                  className="w-full p-2 bg-gray-50 border border-gray-300 rounded text-xs"
-                />
-              </div>
 
               {/* Observaciones generales */}
               <div>
