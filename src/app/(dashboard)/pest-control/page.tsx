@@ -569,7 +569,7 @@ export default function PestControlPage() {
           <h2 className="text-sm font-bold text-gray-800 uppercase tracking-wider">
             Resumen Mensual {selectedYear}
           </h2>
-          {annualMinutes > 0 && (
+          {isAdminOrSuper && annualMinutes > 0 && (
             <span className="px-3 py-1 bg-emerald-100 text-emerald-800 text-xs font-bold rounded-lg flex items-center gap-1.5">
               <Clock className="w-3.5 h-3.5 text-emerald-600" />
               <span>Tiempo Efectivo Anual: {formatMinutesToHoursStr(annualMinutes)}</span>
@@ -589,7 +589,7 @@ export default function PestControlPage() {
                 <th className="p-3 text-center">Total Jornadas</th>
                 <th className="p-3 text-center text-emerald-600">Con Caza</th>
                 <th className="p-3 text-center text-amber-600">Sin Caza</th>
-                <th className="p-3 text-center text-indigo-600">Tiempo Efectivo</th>
+                {isAdminOrSuper && <th className="p-3 text-center text-indigo-600">Tiempo Efectivo</th>}
                 {isAdminOrSuper && <th className="p-3 pr-4 text-center">Evolución</th>}
               </tr>
             </thead>
@@ -605,7 +605,7 @@ export default function PestControlPage() {
                   <td className="p-3 text-center">{annualJornadas}</td>
                   <td className="p-3 text-center text-emerald-700">{annualWithCaza}</td>
                   <td className="p-3 text-center text-amber-700">{annualWithoutCaza}</td>
-                  <td className="p-3 text-center text-indigo-700 font-black">{formatMinutesToHoursStr(annualMinutes)}</td>
+                  {isAdminOrSuper && <td className="p-3 text-center text-indigo-700 font-black">{formatMinutesToHoursStr(annualMinutes)}</td>}
                   {isAdminOrSuper && <td className="p-3 pr-4"></td>}
                 </tr>
               )}
@@ -630,7 +630,7 @@ export default function PestControlPage() {
                       <td className="p-3 text-center font-semibold text-gray-700">{hasData ? m.jornadasCount : '-'}</td>
                       <td className="p-3 text-center font-semibold text-emerald-600">{hasData ? m.withCazaCount : '-'}</td>
                       <td className="p-3 text-center font-semibold text-amber-600">{hasData ? m.withoutCazaCount : '-'}</td>
-                      <td className="p-3 text-center font-bold text-indigo-600">{hasData && m.totalMins > 0 ? formatMinutesToHoursStr(m.totalMins) : '-'}</td>
+                      {isAdminOrSuper && <td className="p-3 text-center font-bold text-indigo-600">{hasData && m.totalMins > 0 ? formatMinutesToHoursStr(m.totalMins) : '-'}</td>}
                       {isAdminOrSuper && (
                         <td className="p-3 pr-4 text-center">
                           {hasData && (
