@@ -18,10 +18,30 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
   }, [profile, loading, router])
 
   useEffect(() => {
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      const reason = event?.reason?.message || String(event?.reason || '')
+      if (
+        reason.includes('Loading chunk') ||
+        reason.includes('ChunkLoadError') ||
+        reason.includes('failed to fetch') ||
+        reason.includes('dynamically imported module') ||
+        reason.includes('Load failed')
+      ) {
+        console.warn('Descalce de despliegue detectado, auto-recargando...')
+        window.location.reload()
+      }
+    }
+
+    window.addEventListener('unhandledrejection', handleUnhandledRejection)
+
     if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
       navigator.serviceWorker.register('/sw.js').catch((err) => {
         console.error('Service worker registration failed:', err)
       })
+    }
+
+    return () => {
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection)
     }
   }, [])
 
