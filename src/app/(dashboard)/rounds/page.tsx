@@ -6,7 +6,11 @@ import { useAuth } from '@/lib/auth/AuthProvider'
 import { Round } from '@/types'
 import { Compass, AlertTriangle, Camera, Plus, CheckCircle, Clock, Filter, Calendar, Search, Eye, X, Wrench, User, FileText } from 'lucide-react'
 import { formatFreeText } from '@/lib/utils/formatters'
-import { sendRoundWhatsAppAlert } from '@/lib/utils/whatsapp'
+import { 
+  sendRoundWhatsAppAlert,
+  sendFenceDamageWhatsAppAlert,
+  sendFenceRepairWhatsAppAlert
+} from '@/lib/utils/whatsapp'
 import { uploadImageFile } from '@/lib/utils/uploadHelpers'
 import { sendFenceDamageEmailAction } from '@/app/(dashboard)/settings/emailActions'
 
@@ -272,8 +276,10 @@ export default function RoundsPage() {
         })
       }
 
-      // Trigger WhatsApp notification (asynchronous & silent)
+      // Trigger WhatsApp notifications (asynchronous & silent)
       const selectedOperator = operators.find(op => op.id === selectedOperatorId)
+      
+      // Mensaje 1: Ronda Perimetral Registrada
       sendRoundWhatsAppAlert({
         round_code: roundData?.round_code || (roundData?.id ? `RND-${roundData.id.slice(0, 6)}` : 'Ronda'),
         operator_name: selectedOperator?.full_name || profile?.full_name || 'Operador',
@@ -281,6 +287,23 @@ export default function RoundsPage() {
         status: hasFenceIncident ? 'Con Novedad / Daño en Reja' : 'Sin novedades',
         observations: formatFreeText(observations) || (hasFenceIncident ? formatFreeText(damageDescription) : undefined),
       }).catch(err => console.warn('Round WhatsApp alert error:', err))
+
+      // Mensaje 2 & 3: Reporte de Daño en Reja y Reparación (si hubo novedad en ronda)
+      if (hasFenceIncident) {
+        const fenceLocation = formattedLocation ? `${zone} - ${formattedLocation}` : zone
+
+        sendFenceDamageWhatsAppAlert({
+          location: fenceLocation,
+          damage_description: formatFreeText(damageDescription),
+          damage_photo_url: finalDamagePhotoUrls[0],
+        }).catch(err => console.warn('Round Fence damage WhatsApp alert error:', err))
+
+        sendFenceRepairWhatsAppAlert({
+          location: fenceLocation,
+          repair_description: formatFreeText(actionTaken) || formatFreeText(damageDescription),
+          repair_photo_url: finalRepairPhotoUrls[0],
+        }).catch(err => console.warn('Round Fence repair WhatsApp alert error:', err))
+      }
 
       setShowModal(false)
       resetForm()
