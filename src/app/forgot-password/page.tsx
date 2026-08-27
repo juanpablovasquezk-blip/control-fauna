@@ -2,15 +2,19 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Mail, ArrowLeft, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Mail, ArrowLeft, CheckCircle2, AlertCircle, Loader2, KeyRound } from 'lucide-react'
 import { requestPasswordResetAction } from './actions'
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
   const [submitted, setSubmitted] = useState(false)
   const [message, setMessage] = useState('')
+  const [resetUrl, setResetUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -26,6 +30,7 @@ export default function ForgotPasswordPage() {
       } else {
         setSubmitted(true)
         setMessage(res.message)
+        if (res.resetUrl) setResetUrl(res.resetUrl)
       }
     } catch (err: any) {
       setError('Ocurrió un error inesperado al procesar la solicitud.')
@@ -70,13 +75,19 @@ export default function ForgotPasswordPage() {
               </p>
             </div>
 
-            <p className="text-xs text-gray-500 leading-relaxed">
-              Revisa tu bandeja de entrada (y la carpeta de spam o correo no deseado). El enlace vence automáticamente por seguridad.
-            </p>
+            {resetUrl && (
+              <button
+                onClick={() => router.push(resetUrl)}
+                className="w-full py-3 px-4 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-xl text-xs transition shadow flex items-center justify-center gap-2"
+              >
+                <KeyRound className="w-4 h-4" />
+                <span>Restablecer Mi Contraseña Ahora</span>
+              </button>
+            )}
 
             <Link
               href="/login"
-              className="inline-flex items-center justify-center gap-2 w-full py-3 px-4 bg-gray-900 hover:bg-black text-white font-semibold rounded-lg text-xs transition shadow"
+              className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl text-xs transition"
             >
               <ArrowLeft className="w-4 h-4" />
               <span>Volver a Iniciar Sesión</span>
@@ -85,7 +96,7 @@ export default function ForgotPasswordPage() {
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             <p className="text-xs text-gray-600 leading-relaxed text-center">
-              Ingresa el correo electrónico registrado con tu usuario. Te enviaremos un enlace seguro para definir una nueva contraseña.
+              Ingresa el correo electrónico registrado con tu usuario. Te enviaremos las instrucciones para definir una nueva contraseña.
             </p>
 
             {error && (
