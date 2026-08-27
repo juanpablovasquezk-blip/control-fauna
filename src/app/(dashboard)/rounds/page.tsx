@@ -201,8 +201,8 @@ export default function RoundsPage() {
       alert('Debe seleccionar la zona del aeródromo.')
       return
     }
-    if (!specificLocation.trim()) {
-      alert('Debe ingresar el lugar específico.')
+    if (hasFenceIncident && !specificLocation.trim()) {
+      alert('Debe ingresar el lugar específico de la rotura en el cerco.')
       return
     }
 
@@ -629,18 +629,6 @@ export default function RoundsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Lugar Específico</label>
-                <input
-                  type="text"
-                  required
-                  value={specificLocation}
-                  onChange={(e) => setSpecificLocation(e.target.value)}
-                  placeholder="Ej: Umbral Pista 35L (Calle Alpha)"
-                  className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-xs"
-                />
-              </div>
-
-              <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">Observaciones Generales</label>
                 <textarea
                   rows={2}
@@ -665,6 +653,18 @@ export default function RoundsPage() {
 
                 {hasFenceIncident && (
                   <div className="space-y-3 pt-2 border-t border-gray-200">
+                    <div>
+                      <label className="block text-[11px] font-bold text-red-700 mb-1">Lugar Específico del Daño / Rotura *</label>
+                      <input
+                        type="text"
+                        required
+                        value={specificLocation}
+                        onChange={(e) => setSpecificLocation(e.target.value)}
+                        placeholder="Ej: Umbral Pista 35L (Calle Alpha)"
+                        className="w-full p-2 border border-gray-300 rounded text-xs"
+                      />
+                    </div>
+
                     <div>
                       <label className="block text-[11px] font-bold text-red-700 mb-1">Descripción del Daño / Orificio *</label>
                       <input
