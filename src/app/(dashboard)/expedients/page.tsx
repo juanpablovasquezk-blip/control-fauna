@@ -649,16 +649,25 @@ export default function ExpedientsPage() {
                 </button>
               </div>
 
-              {/* Ficha Resumen con Foto del Animal */}
+              {/* Ficha Resumen con Foto(s) del Animal */}
               <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 flex flex-col sm:flex-row gap-4 items-center">
-                {photoUrl ? (
-                  <a href={photoUrl} target="_blank" rel="noopener noreferrer" className="shrink-0">
-                    <img
-                      src={photoUrl}
-                      alt={`Foto ${selectedAnimal.species}`}
-                      className="w-28 h-28 object-cover rounded-xl border border-gray-300 shadow-sm hover:opacity-90 transition"
-                    />
-                  </a>
+                {selectedAnimal.photo_urls && selectedAnimal.photo_urls.length > 0 ? (
+                  <div className="flex gap-2 shrink-0">
+                    {selectedAnimal.photo_urls.map((pUrl: string, pIdx: number) => (
+                      <div key={pIdx} className="text-center">
+                        <a href={pUrl} target="_blank" rel="noopener noreferrer" className="block relative">
+                          <img
+                            src={pUrl}
+                            alt={`Foto ${selectedAnimal.species} ${pIdx + 1}`}
+                            className="w-24 h-24 sm:w-28 sm:h-28 object-cover rounded-xl border border-gray-300 shadow-sm hover:opacity-90 transition"
+                          />
+                          <span className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[8px] font-bold text-center py-0.5 rounded-b-xl">
+                            {pIdx === 0 ? 'Captura' : 'Liberación'}
+                          </span>
+                        </a>
+                      </div>
+                    ))}
+                  </div>
                 ) : (
                   <div className="w-28 h-28 bg-gray-200 rounded-xl flex items-center justify-center text-gray-400 shrink-0">
                     <Dog className="w-10 h-10" />

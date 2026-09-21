@@ -286,15 +286,19 @@ export async function sendCapturedAnimalWhatsAppAlert(params: {
   total?: number
   client_group_id?: string
 }) {
-  const animalIcon = params.species === 'Gato' ? '🐱' : '🐕'
+  const isBat = params.species === 'Murciélago'
+  const isCat = params.species === 'Gato'
+  const animalIcon = isBat ? '🦇' : isCat ? '🐱' : '🐕'
+  const headerTitle = isBat ? 'FAUNA / MURCIÉLAGO CAPTURADO' : isCat ? 'FELINO CAPTURADO' : 'CAN CAPTURADO'
+  const statusStr = isBat ? 'Liberado en sector seguro' : 'Ingresado a Canil'
   const indexStr = params.total && params.total > 1 ? ` (${params.index || 1} de ${params.total})` : ''
 
   const message = [
-    `${animalIcon} *CAN CAPTURADO*${indexStr}`,
+    `${animalIcon} *${headerTitle}*${indexStr}`,
     `• *Especie / Sexo:* ${params.species} ${params.sex}`,
     `• *Tamaño / Edad:* ${params.size} - ${params.apparent_age}`,
     params.color_features ? `• *Características:* ${formatFreeText(params.color_features)}` : null,
-    `• *Estado:* Ingresado a Canil`,
+    `• *Estado:* ${statusStr}`,
   ]
     .filter(Boolean)
     .join('\n')
